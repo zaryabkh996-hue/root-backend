@@ -24,6 +24,7 @@ return [
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
         'https://root-frontend-production.up.railway.app',
+        'https://dagger-body-repackage.ngrok-free.dev',
     ],
 
     'allowed_origins_patterns' => [],
