@@ -107,7 +107,8 @@ class AdminAuthController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred during login. Please try again.'
+                'message' => 'An error occurred during login.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
