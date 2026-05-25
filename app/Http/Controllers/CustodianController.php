@@ -113,6 +113,25 @@ class CustodianController extends Controller
     }
 
     /**
+     * Get a single custodian for admin
+     */
+    public function show(Request $request, $id)
+    {
+        try {
+            $custodian = User::where('role', 'custodian')->findOrFail($id);
+            return response()->json([
+                'success' => true,
+                'data' => $custodian,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['error' => 'Custodian not found'], 404);
+        } catch (\Exception $e) {
+            Log::error('CustodianController::show - Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch custodian'], 500);
+        }
+    }
+
+    /**
      * Create custodian
      */
     public function store(Request $request)
@@ -138,6 +157,7 @@ class CustodianController extends Controller
                 'availability' => 'required|in:Available,Booked',
                 'description' => 'required|string',
                 'price_from' => 'required|numeric|min:0',
+                'status' => 'nullable|in:active,inactive,suspended,pending',
                 'certification' => 'nullable|string',
                 'coc_status' => 'nullable|string',
                 'review_avg' => 'nullable|numeric',
@@ -158,6 +178,7 @@ class CustodianController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make(\Str::random(32)),
                 'role' => 'custodian',
+                'status' => $request->status ?? 'active',
                 'location' => $request->location,
                 'country' => $request->country,
                 'years_experience' => $request->years_experience,
@@ -196,7 +217,8 @@ class CustodianController extends Controller
     public function update(Request $request, $id)
     {
         try {
-           
+            Log::info('CustodianController::update called for ID: ' . $id);
+            Log::info('Request data: ' . json_encode($request->all()));
 
             $custodian = User::where('role', 'custodian')->find($id);
             if (!$custodian) {
@@ -205,6 +227,7 @@ class CustodianController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:255|unique:users,name,' . $id,
+                'email' => 'email|unique:users,email,' . $id,
                 'location' => 'string|max:255',
                 'country' => 'string|max:255',
                 'years_experience' => 'integer|min:0',
@@ -212,6 +235,11 @@ class CustodianController extends Controller
                 'availability' => 'in:Available,Booked',
                 'description' => 'string',
                 'price_from' => 'numeric|min:0',
+                'status' => 'in:active,inactive,suspended,pending',
+                'certification' => 'nullable|string',
+                'coc_status' => 'nullable|string',
+                'review_avg' => 'nullable|numeric',
+                'sessions_count' => 'nullable|integer',
                 'short_bio' => 'nullable|string',
                 'about' => 'nullable|string',
                 'languages' => 'nullable|array',
@@ -220,12 +248,30 @@ class CustodianController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('Validation failed: ' . json_encode($validator->errors()));
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
-            $custodian->update($request->all());
+            // Build update data - only update fields that are in fillable array
+            $updateData = [];
+            $fillableFields = [
+                'name', 'email', 'location', 'country', 'years_experience', 'specialty',
+                'availability', 'description', 'status', 'certification', 'coc_status',
+                'review_avg', 'sessions_count', 'short_bio', 'about', 'languages',
+                'services', 'testimonials', 'price_from', 'tags'
+            ];
 
-            Log::info('Custodian updated: ' . $id);
+            foreach ($fillableFields as $field) {
+                if ($request->has($field)) {
+                    $updateData[$field] = $request->input($field);
+                }
+            }
+
+            Log::info('Update data prepared: ' . json_encode($updateData));
+
+            $custodian->update($updateData);
+
+            Log::info('Custodian updated successfully: ' . $id);
 
             return response()->json([
                 'success' => true,
@@ -234,7 +280,11 @@ class CustodianController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('CustodianController::update - Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to update custodian'], 500);
+            Log::error('CustodianController::update - Stack trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'error' => 'Failed to update custodian: ' . $e->getMessage(),
+                'details' => $e->getMessage()
+            ], 500);
         }
     }
 

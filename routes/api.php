@@ -105,6 +105,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/libraries', [LibraryController::class, 'adminList']);
         Route::get('/users', [AdminUserController::class, 'getUsers']);
         Route::get('/custodians', [CustodianController::class, 'getForAdmin']);
+        Route::get('/custodians/{id}', [CustodianController::class, 'show']);
         Route::post('/custodians', [CustodianController::class, 'store']);
         Route::put('/custodians/{id}', [CustodianController::class, 'update']);
         Route::delete('/custodians/{id}', [CustodianController::class, 'destroy']);

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'status',
         'whatsapp',
         'quiz_data',
         'email_verified_at',
