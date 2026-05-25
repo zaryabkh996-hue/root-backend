@@ -219,6 +219,7 @@ class AuthController extends Controller
                 $user = User::create([
                     'name' => $request->name,
                     'email' => $request->email,
+                    'role' => 'customer',
                     'auth0_id' => $request->auth0_id,
                     'picture' => $request->picture,
                'password' => Hash::make(\Str::random(32)), // Random password since using magic link
@@ -242,10 +243,11 @@ class AuthController extends Controller
                     'user' => [
                         'id' => $user->id,
                         'name' => $user->name,
+                        'role' => $user->role,
                         'email' => $user->email,
                         'picture' => $user->picture,
                         'auth0_id' => $user->auth0_id,
-                        'role' => $user->role,
+                       
                     ],
                 ],
             ], $user->wasRecentlyCreated ? 201 : 200);

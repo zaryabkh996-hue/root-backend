@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Mail\MagicLinkEmail;
 use App\Helpers\MailjetHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
 
@@ -17,17 +18,21 @@ class MagicLinkController extends Controller
      */
     public function sendMagicLink(Request $request)
     {
+        \Log::info('📝 [MAGIC_LINK] Registration request received', [
+            'email' => $request->input('email'),
+            'name' => $request->input('name')
+        ]);
         $validated = $request->validate([
             'email' => 'required|email',
-            'name' => 'required|string|min:2',
+           
             'whatsapp' => 'nullable|string',
             'quiz_data' => 'nullable|array'
         ]);
 
         try {
             \Log::info('📝 [MAGIC_LINK] Registration request started', [
-                'email' => $validated['email'],
-                'name' => $validated['name']
+                'email' => $validated['email']
+               
             ]);
 
             // Check if user already exists
@@ -47,7 +52,7 @@ class MagicLinkController extends Controller
             $magicLink = MagicLink::create([
                 'email' => $validated['email'],
                 'token' => $token,
-                'name' => $validated['name'],
+                'name' => $validated['name'] ?? 'User',
                 'whatsapp' => $validated['whatsapp'] ?? null,
                 'quiz_data' => $validated['quiz_data'] ?? null,
                 'expires_at' => now()->addMinutes(15)
@@ -126,6 +131,10 @@ class MagicLinkController extends Controller
      */
     public function signInMagicLink(Request $request)
     {
+        \Log::info('📝 [MAGIC_LINK] Sign-in request received', [
+            'email' => $request->input('email')
+        ]);
+
         $validated = $request->validate([
             'email' => 'required|email',
         ]);
@@ -142,7 +151,12 @@ class MagicLinkController extends Controller
                 \Log::warning('⚠️ [MAGIC_LINK] User not found', ['email' => $validated['email']]);
                 return response()->json([
                     'success' => false,
-                    'message' => 'No account found with this email. Please register first.'
+                    'message' => 'No account found with this email.',
+                    'code' => 'USER_NOT_FOUND',
+                    'guidance' => [
+                        'customer' => 'Please complete our quiz and register to create an account.',
+                        'custodian' => 'If you are a custodian/admin, please contact the main administrator for account access.'
+                    ]
                 ], 404);
             }
 
@@ -298,6 +312,7 @@ class MagicLinkController extends Controller
                     'name' => $magicLink->name,
                     'email' => $magicLink->email,
                     'whatsapp' => $magicLink->whatsapp,
+                    'role' => 'customer', // Default role
                     'password' => Hash::make(\Str::random(32)), // Random password since using magic link
                     'email_verified_at' => now(),
                 ]);
@@ -342,6 +357,7 @@ class MagicLinkController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'role' => $user->role
                 ],
                 'token' => $token
             ]);

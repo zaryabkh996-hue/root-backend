@@ -12,7 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // API uses stateless Bearer token authentication (no CSRF needed)
+        // EnsureFrontendRequestsAreStateful is NOT used - we use pure token-based auth
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

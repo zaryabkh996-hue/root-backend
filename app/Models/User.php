@@ -30,6 +30,34 @@ class User extends Authenticatable
         'auth0_id',
         'picture',
         'provider',
+        'location',
+        'country',
+        'years_experience',
+        'specialty',
+        'avatar_class',
+        'gradient_bg',
+        'availability',
+        'description',
+        'tags',
+        'price_from',
+        'certification',
+        'coc_status',
+        'review_avg',
+        'sessions_count',
+        'short_bio',
+        'about',
+        'languages',
+        'services',
+        'testimonials',
+        'bio',
+        'bio_privacy',
+        'travel_date',
+        'travel_location',
+        'diaspora_group',
+        'learning_preference',
+        'profile_visibility',
+        'journey_photos_default',
+        'show_score_publicly',
     ];
 
     /**
@@ -47,12 +75,24 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'quiz_data' => 'array',
+            'tags' => 'array',
+            'languages' => 'array',
+            'services' => 'array',
+            'testimonials' => 'array',
         ];
+    }
+
+    /**
+     * Get the user's progress record.
+     */
+    public function progress()
+    {
+        return $this->hasOne(UserProgress::class);
     }
 }

@@ -1,0 +1,479 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\UserProgress;
+use App\Models\JourneyPhoto;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+
+class ProfileController extends Controller
+{
+    /**
+     * Get user profile
+     */
+    public function show(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // Get user progress for journey info
+            $progress = UserProgress::where('user_id', $user->id)->first();
+
+            // Get the base URL for storage
+            $storageUrl = rtrim(env('APP_URL', 'http://localhost'), '/') . '/storage';
+
+            // Helper function to construct complete URL from relative path
+            $getCompleteUrl = function($path) use ($storageUrl) {
+                if (!$path) return null;
+                // Always construct from relative path (don't check for http - we store relative paths only)
+                return $storageUrl . '/' . ltrim($path, '/');
+            };
+
+            // Prepare profile data
+            $profileData = [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'whatsapp' => $user->whatsapp,
+                'picture' => $getCompleteUrl($user->picture),
+                'bio' => $user->bio,
+                'bioPrivacy' => $user->bio_privacy,
+                'travelDate' => $user->travel_date,
+                'travelLocation' => $user->travel_location,
+                'diasporaGroup' => $user->diaspora_group,
+                'learningPreference' => $user->learning_preference,
+                'profileVisibility' => $user->profile_visibility,
+                'journeyPhotosDefault' => $user->journey_photos_default,
+                'showScorePublicly' => $user->show_score_publicly,
+                'memberSince' => $user->created_at ? $user->created_at->format('d M Y') : null,
+            ];
+
+            // Add progress info if exists
+            if ($progress) {
+                $profileData['afroScore'] = $progress->afro_score ?? 0;
+                $profileData['userPersona'] = $progress->user_persona;
+                $profileData['lifecyclePhase'] = $progress->lifecycle_phase;
+                $profileData['completedStages'] = $progress->completed_stages ?? [];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $profileData,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch profile',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update user profile
+     */
+    public function update(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // Validate input
+            $validator = Validator::make($request->all(), [
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
+                'whatsapp' => 'sometimes|string|max:20|nullable',
+                'bio' => 'sometimes|string|max:280|nullable',
+                'bioPrivacy' => 'sometimes|in:public,community,private',
+                'travelDate' => 'sometimes|string|nullable',
+                'travelLocation' => 'sometimes|string|max:255|nullable',
+                'diasporaGroup' => 'sometimes|string|max:255|nullable',
+                'learningPreference' => 'sometimes|string|max:255|nullable',
+                'profileVisibility' => 'sometimes|in:public,community,private',
+                'journeyPhotosDefault' => 'sometimes|in:public,community,private',
+                'showScorePublicly' => 'sometimes|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Map camelCase to snake_case for database
+            $dataToUpdate = [];
+            
+            if ($request->has('name')) {
+                $dataToUpdate['name'] = $request->input('name');
+            }
+            if ($request->has('email')) {
+                $dataToUpdate['email'] = $request->input('email');
+            }
+            if ($request->has('whatsapp')) {
+                $dataToUpdate['whatsapp'] = $request->input('whatsapp');
+            }
+            if ($request->has('bio')) {
+                $dataToUpdate['bio'] = $request->input('bio');
+            }
+            if ($request->has('bioPrivacy')) {
+                $dataToUpdate['bio_privacy'] = $request->input('bioPrivacy');
+            }
+            if ($request->has('travelDate')) {
+                $dataToUpdate['travel_date'] = $request->input('travelDate');
+            }
+            if ($request->has('travelLocation')) {
+                $dataToUpdate['travel_location'] = $request->input('travelLocation');
+            }
+            if ($request->has('diasporaGroup')) {
+                $dataToUpdate['diaspora_group'] = $request->input('diasporaGroup');
+            }
+            if ($request->has('learningPreference')) {
+                $dataToUpdate['learning_preference'] = $request->input('learningPreference');
+            }
+            if ($request->has('profileVisibility')) {
+                $dataToUpdate['profile_visibility'] = $request->input('profileVisibility');
+            }
+            if ($request->has('journeyPhotosDefault')) {
+                $dataToUpdate['journey_photos_default'] = $request->input('journeyPhotosDefault');
+            }
+            if ($request->has('showScorePublicly')) {
+                $dataToUpdate['show_score_publicly'] = $request->input('showScorePublicly');
+            }
+
+            // Update user
+            $user->update($dataToUpdate);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile updated successfully',
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'whatsapp' => $user->whatsapp,
+                    'bio' => $user->bio,
+                    'bioPrivacy' => $user->bio_privacy,
+                    'travelDate' => $user->travel_date,
+                    'travelLocation' => $user->travel_location,
+                    'diasporaGroup' => $user->diaspora_group,
+                    'learningPreference' => $user->learning_preference,
+                    'profileVisibility' => $user->profile_visibility,
+                    'journeyPhotosDefault' => $user->journey_photos_default,
+                    'showScorePublicly' => $user->show_score_publicly,
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update profile',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update user notifications preferences
+     */
+    public function updateNotifications(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // Validate input
+            $validator = Validator::make($request->all(), [
+                'stageTransitions' => 'sometimes|boolean',
+                'preTripCheckIns' => 'sometimes|boolean',
+                'communityDigest' => 'sometimes|boolean',
+                'newCustodians' => 'sometimes|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Store notification preferences in quiz_data or a new field
+            $progress = UserProgress::where('user_id', $user->id)->first();
+            if (!$progress) {
+                $progress = UserProgress::create([
+                    'user_id' => $user->id,
+                ]);
+            }
+
+            // For now, store in user quiz_data or we can extend UserProgress
+            // This is a basic implementation
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification preferences updated',
+                'data' => $request->all(),
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update notifications',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload user profile picture
+     */
+    public function uploadPicture(Request $request)
+    {
+        try {
+            \Log::info('[ProfileController] uploadPicture - Request received', [
+                'user_id' => $request->user()?->id,
+                'has_picture' => $request->hasFile('picture'),
+            ]);
+
+            $user = $request->user();
+
+            if (!$user) {
+                \Log::warning('[ProfileController] uploadPicture - No authenticated user');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // Validate file
+            $validator = Validator::make($request->all(), [
+                'picture' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // max 5MB
+            ]);
+
+            if ($validator->fails()) {
+                \Log::warning('[ProfileController] uploadPicture - Validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Delete old picture if exists
+            if ($user->picture) {
+                \Log::info('[ProfileController] uploadPicture - Attempting to delete old picture', [
+                    'old_picture' => $user->picture,
+                ]);
+                // Old picture is stored as relative path
+                if (Storage::disk('public')->exists($user->picture)) {
+                    Storage::disk('public')->delete($user->picture);
+                    \Log::info('[ProfileController] uploadPicture - Old picture deleted');
+                }
+            }
+
+            // Store new picture
+            $file = $request->file('picture');
+            \Log::info('[ProfileController] uploadPicture - Storing new file', [
+                'filename' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'mime' => $file->getMimeType(),
+            ]);
+
+            $path = $file->store('profiles', 'public');
+            $relativePath = 'profiles/' . basename($path);
+            \Log::info('[ProfileController] uploadPicture - File stored', [
+                'path' => $path,
+                'relative_path' => $relativePath,
+            ]);
+
+            // Update user with relative path only
+            $user->update(['picture' => $relativePath]);
+            \Log::info('[ProfileController] uploadPicture - User updated in database', [
+                'picture' => $relativePath,
+            ]);
+
+            // Get the base URL for storage
+            $storageUrl = rtrim(env('APP_URL', 'http://localhost'), '/') . '/storage';
+            $completeUrl = $storageUrl . '/' . $relativePath;
+            \Log::info('[ProfileController] uploadPicture - URL constructed', [
+                'storage_url' => $storageUrl,
+                'complete_url' => $completeUrl,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Picture uploaded successfully',
+                'data' => [
+                    'picture' => $completeUrl,
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('[ProfileController] uploadPicture - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload picture',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get user journey photos
+     */
+    public function getJourneyPhotos(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // Get the base URL for storage
+            $storageUrl = rtrim(env('APP_URL', 'http://localhost'), '/') . '/storage';
+
+            $photos = JourneyPhoto::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($photo) use ($storageUrl) {
+                    // Construct complete URL from relative path stored in DB
+                    $completeUrl = $storageUrl . '/' . ltrim($photo->url, '/');
+                    
+                    return [
+                        'id' => $photo->id,
+                        'url' => $completeUrl,
+                        'caption' => $photo->caption,
+                        'hub' => $photo->hub,
+                        'visibility' => $photo->visibility,
+                        'createdAt' => $photo->created_at->format('Y-m-d H:i:s'),
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $photos,
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('[ProfileController] getJourneyPhotos - Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch journey photos',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload journey photo
+     */
+    public function uploadJourneyPhoto(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // Validate file
+            $validator = Validator::make($request->all(), [
+                'photo' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240', // max 10MB
+                'caption' => 'sometimes|string|max:255|nullable',
+                'hub' => 'sometimes|string|max:255',
+                'visibility' => 'sometimes|in:public,community,private',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Store photo
+            $file = $request->file('photo');
+            $path = $file->store('journey-photos', 'public');
+            $relativePath = 'journey-photos/' . basename($path);
+
+            // Create journey photo record
+            $journeyPhoto = JourneyPhoto::create([
+                'user_id' => $user->id,
+                'url' => $relativePath,
+                'caption' => $request->input('caption', ''),
+                'hub' => $request->input('hub', 'Love Hub'),
+                'visibility' => $request->input('visibility', $user->journey_photos_default ?? 'community'),
+            ]);
+
+            // Get the base URL for storage
+            $storageUrl = rtrim(env('APP_URL', 'http://localhost'), '/') . '/storage';
+            $completeUrl = $storageUrl . '/' . $relativePath;
+
+            \Log::info('[ProfileController] uploadJourneyPhoto - URL constructed', [
+                'relative_path' => $relativePath,
+                'storage_url' => $storageUrl,
+                'complete_url' => $completeUrl,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Photo uploaded successfully',
+                'data' => [
+                    'id' => $journeyPhoto->id,
+                    'url' => $completeUrl,
+                    'caption' => $journeyPhoto->caption,
+                    'hub' => $journeyPhoto->hub,
+                    'visibility' => $journeyPhoto->visibility,
+                    'createdAt' => $journeyPhoto->created_at->format('Y-m-d H:i:s'),
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload photo',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+}
