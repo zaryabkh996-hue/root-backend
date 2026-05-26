@@ -15,12 +15,15 @@ use App\Http\Controllers\CommunityThreadController;
 use App\Http\Controllers\CommunityReplyController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\SeederController;
 
 
 
 // ──────────────────────────────────────────────────────────────────────────
 // PUBLIC ROUTES - No authentication required
 // ──────────────────────────────────────────────────────────────────────────
+
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/auth/register-oauth', [AuthController::class, 'registerOAuth']);
