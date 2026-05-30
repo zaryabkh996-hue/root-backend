@@ -26,6 +26,8 @@ class User extends Authenticatable
         'role',
         'status',
         'whatsapp',
+        'instagram',
+        'linkedin',
         'quiz_data',
         'email_verified_at',
         'auth0_id',
@@ -95,5 +97,13 @@ class User extends Authenticatable
     public function progress()
     {
         return $this->hasOne(UserProgress::class);
+    }
+
+    /**
+     * Get the bookings for this custodian.
+     */
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class, 'custodian_id');
     }
 }

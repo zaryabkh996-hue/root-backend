@@ -16,6 +16,7 @@ use App\Http\Controllers\CommunityReplyController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\SeederController;
+use App\Http\Controllers\LoungeController;
 
 
 
@@ -32,6 +33,11 @@ Route::post('/auth/magic-link/signin', [MagicLinkController::class, 'signInMagic
 Route::post('/auth/magic-link/verify', [MagicLinkController::class, 'verifyMagicLink']);
 Route::post('/auth/admin/login', [AdminAuthController::class, 'login']);
 
+// Public custodians routes (no auth required)
+Route::get('/custodians', [CustodianController::class, 'getAll']);
+Route::get('/custodians/{id}', [CustodianController::class, 'getOne']);
+Route::post('/custodians/apply', [CustodianController::class, 'apply']);
+
 // ──────────────────────────────────────────────────────────────────────────
 // PROTECTED ROUTES - Requires Sanctum token
 // ──────────────────────────────────────────────────────────────────────────
@@ -45,10 +51,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin Auth routes
     Route::post('/auth/admin/logout', [AdminAuthController::class, 'logout']);
     Route::get('/auth/admin/me', [AdminAuthController::class, 'me']);
-
-    // Public API routes (accessible by authenticated users)
-    Route::get('/custodians', [CustodianController::class, 'getAll']);
-    Route::get('/custodians/{id}', [CustodianController::class, 'getOne']);
 
     // Progress routes
     Route::get('/progress', [ProgressController::class, 'show']);
@@ -101,6 +103,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/libraries/{id}', [LibraryController::class, 'update']);
     Route::delete('/libraries/{id}', [LibraryController::class, 'destroy']);
 
+    // Lounge routes
+    Route::get('/lounge/posts', [LoungeController::class, 'index']);
+    Route::post('/lounge/posts', [LoungeController::class, 'store']);
+    Route::post('/lounge/posts/{id}/like', [LoungeController::class, 'toggleLike']);
+    Route::post('/lounge/posts/{id}/replies', [LoungeController::class, 'reply']);
+    Route::get('/lounge/stats', [LoungeController::class, 'stats']);
+
     // ──────────────────────────────────────────────────────────────────────────
     // ADMIN ROUTES - Requires Sanctum token + admin role (consider adding middleware)
     // ──────────────────────────────────────────────────────────────────────────
@@ -118,4 +127,3 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/community/hubs/{id}', [CommunityHubController::class, 'update']);
     });
 });
-
