@@ -11,18 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('journey_photos', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('url');
-            $table->string('caption')->nullable();
-            $table->string('hub')->default('Love Hub');
-            $table->enum('visibility', ['public', 'community', 'private'])->default('community');
-            $table->timestamps();
-            
-            $table->index('user_id');
-            $table->index('created_at');
-        });
+        if (!Schema::hasTable('journey_photos')) {
+            Schema::create('journey_photos', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->onDelete('cascade');
+                $table->string('url');
+                $table->string('caption')->nullable();
+                $table->string('hub')->default('Love Hub');
+                $table->enum('visibility', ['public', 'community', 'private'])->default('community');
+                $table->timestamps();
+                
+                $table->index('user_id');
+                $table->index('created_at');
+            });
+        }
     }
 
     /**

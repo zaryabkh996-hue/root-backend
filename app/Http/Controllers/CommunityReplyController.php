@@ -24,6 +24,7 @@ class CommunityReplyController extends Controller
             ->map(function ($reply) {
                 return [
                     'id' => $reply->id,
+                    'user_id' => $reply->user_id,
                     'content' => $reply->content,
                     'author' => $reply->author->name,
                     'author_initials' => substr($reply->author->name, 0, 1),
@@ -68,6 +69,7 @@ class CommunityReplyController extends Controller
             'message' => 'Reply posted successfully',
             'data' => [
                 'id' => $reply->id,
+                'user_id' => $reply->user_id,
                 'content' => $reply->content,
                 'author' => $reply->author->name,
                 'author_initials' => substr($reply->author->name, 0, 1),

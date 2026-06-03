@@ -30,6 +30,10 @@ class BookingController extends Controller
                 'booking_date' => 'required|date',
                 'booking_time' => 'required|string',
                 'message' => 'nullable|string|max:500',
+                'session_type' => 'nullable|string|max:255',
+                'session_duration' => 'nullable|integer|min:1',
+                'platform_link' => 'nullable|string|max:255',
+                'amount_charged_usd' => 'nullable|numeric|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -43,6 +47,10 @@ class BookingController extends Controller
                 'booking_date' => $request->booking_date,
                 'booking_time' => $request->booking_time,
                 'message' => $request->message,
+                'session_type' => $request->session_type,
+                'session_duration' => $request->session_duration,
+                'platform_link' => $request->platform_link,
+                'amount_charged_usd' => $request->amount_charged_usd,
                 'status' => 'pending',
             ]);
 
@@ -301,14 +309,28 @@ class BookingController extends Controller
             }
 
             $validator = Validator::make($request->all(), [
-                'status' => 'required|string|in:pending,confirmed,completed,cancelled',
+                'status' => 'nullable|string|in:pending,confirmed,completed,cancelled',
+                'session_type' => 'nullable|string|max:255',
+                'session_duration' => 'nullable|integer|min:1',
+                'platform_link' => 'nullable|string|max:255',
+                'amount_charged_usd' => 'nullable|numeric|min:0',
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
-            $booking->update(['status' => $request->status]);
+            $updateData = array_filter([
+                'status' => $request->status,
+                'session_type' => $request->session_type,
+                'session_duration' => $request->session_duration,
+                'platform_link' => $request->platform_link,
+                'amount_charged_usd' => $request->amount_charged_usd,
+            ], function ($value) {
+                return $value !== null;
+            });
+
+            $booking->update($updateData);
 
             Log::info('Booking ' . $id . ' status updated to: ' . $request->status);
 

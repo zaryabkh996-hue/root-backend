@@ -40,6 +40,14 @@ class ProfileController extends Controller
             };
 
             // Prepare profile data
+            $defaultNotifications = [
+                'stageTransitions' => true,
+                'preTripCheckIns' => true,
+                'communityDigest' => true,
+                'newCustodians' => false,
+            ];
+            $notifications = array_merge($defaultNotifications, $user->notification_preferences ?? []);
+
             $profileData = [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -55,6 +63,7 @@ class ProfileController extends Controller
                 'profileVisibility' => $user->profile_visibility,
                 'journeyPhotosDefault' => $user->journey_photos_default,
                 'showScorePublicly' => $user->show_score_publicly,
+                'notificationPreferences' => $notifications,
                 'memberSince' => $user->created_at ? $user->created_at->format('d M Y') : null,
             ];
 
@@ -222,21 +231,28 @@ class ProfileController extends Controller
                 ], 422);
             }
 
-            // Store notification preferences in quiz_data or a new field
-            $progress = UserProgress::where('user_id', $user->id)->first();
-            if (!$progress) {
-                $progress = UserProgress::create([
-                    'user_id' => $user->id,
-                ]);
+            $currentPrefs = $user->notification_preferences ?? [
+                'stageTransitions' => true,
+                'preTripCheckIns' => true,
+                'communityDigest' => true,
+                'newCustodians' => false,
+            ];
+
+            // Merge with request inputs
+            foreach (['stageTransitions', 'preTripCheckIns', 'communityDigest', 'newCustodians'] as $key) {
+                if ($request->has($key)) {
+                    $currentPrefs[$key] = $request->boolean($key);
+                }
             }
 
-            // For now, store in user quiz_data or we can extend UserProgress
-            // This is a basic implementation
+            $user->update([
+                'notification_preferences' => $currentPrefs
+            ]);
             
             return response()->json([
                 'success' => true,
                 'message' => 'Notification preferences updated',
-                'data' => $request->all(),
+                'data' => $currentPrefs,
             ], 200);
 
         } catch (\Exception $e) {

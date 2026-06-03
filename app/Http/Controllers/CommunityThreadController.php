@@ -56,6 +56,7 @@ class CommunityThreadController extends Controller
             'success' => true,
             'data' => [
                 'id' => $thread->id,
+                'user_id' => $thread->user_id,
                 'title' => $thread->title,
                 'content' => $thread->content,
                 'author' => $thread->author->name,
@@ -71,6 +72,7 @@ class CommunityThreadController extends Controller
                 'replies' => $thread->replies->map(function ($reply) {
                     return [
                         'id' => $reply->id,
+                        'user_id' => $reply->user_id,
                         'content' => $reply->content,
                         'author' => $reply->author->name,
                         'author_initials' => substr($reply->author->name, 0, 1),

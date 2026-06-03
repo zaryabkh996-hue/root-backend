@@ -17,6 +17,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\SeederController;
 use App\Http\Controllers\LoungeController;
+use App\Http\Controllers\CommunityReportController;
 
 
 
@@ -97,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/community/replies', [CommunityReplyController::class, 'store']);
     Route::put('/community/replies/{id}', [CommunityReplyController::class, 'update']);
     Route::delete('/community/replies/{id}', [CommunityReplyController::class, 'destroy']);
+    Route::post('/community/reports', [CommunityReportController::class, 'store']);
 
     // Library routes
     Route::post('/libraries', [LibraryController::class, 'store']);
@@ -125,5 +127,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // Community admin routes
         Route::post('/community/hubs', [CommunityHubController::class, 'store']);
         Route::put('/community/hubs/{id}', [CommunityHubController::class, 'update']);
+
+        // Conduct & reports routes
+        Route::get('/community/reports', [CommunityReportController::class, 'index']);
+        Route::post('/community/reports/{id}/warn', [CommunityReportController::class, 'warn']);
+        Route::post('/community/reports/{id}/ban', [CommunityReportController::class, 'ban']);
+        Route::post('/community/reports/{id}/dismiss', [CommunityReportController::class, 'dismiss']);
     });
 });

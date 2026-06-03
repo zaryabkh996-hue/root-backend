@@ -61,6 +61,7 @@ class User extends Authenticatable
         'profile_visibility',
         'journey_photos_default',
         'show_score_publicly',
+        'notification_preferences',
     ];
 
     /**
@@ -88,6 +89,7 @@ class User extends Authenticatable
             'languages' => 'array',
             'services' => 'array',
             'testimonials' => 'array',
+            'notification_preferences' => 'array',
         ];
     }
 
