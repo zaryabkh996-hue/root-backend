@@ -100,11 +100,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/community/replies/{id}', [CommunityReplyController::class, 'destroy']);
     Route::post('/community/reports', [CommunityReportController::class, 'store']);
 
-    // Library routes
-    Route::post('/libraries', [LibraryController::class, 'store']);
-    Route::put('/libraries/{id}', [LibraryController::class, 'update']);
-    Route::delete('/libraries/{id}', [LibraryController::class, 'destroy']);
-
     // Lounge routes
     Route::get('/lounge/posts', [LoungeController::class, 'index']);
     Route::post('/lounge/posts', [LoungeController::class, 'store']);
