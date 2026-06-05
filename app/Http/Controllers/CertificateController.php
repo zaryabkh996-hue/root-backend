@@ -140,7 +140,7 @@ class CertificateController extends Controller
                         ? 'Completion Certificate - All 6 Stages'
                         : 'Progress Certificate - ' . count($completedStages) . ' of 6 Stages',
                     'issuedDate' => now()->format('Y-m-d'),
-                    'downloadUrl' => '/api/certificates/download',
+                    'downloadUrl' => '/certificates/download',
                     'canDownload' => true,
                 ];
             }

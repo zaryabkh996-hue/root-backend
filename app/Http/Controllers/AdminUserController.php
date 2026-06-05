@@ -11,15 +11,6 @@ class AdminUserController extends Controller
 {
     public function getUsers(Request $request)
     {
-        // Log incoming request
-        Log::info('AdminUserController::getUsers called', [
-            'user_id' => $request->user()?->id,
-            'user_email' => $request->user()?->email,
-            'auth_header' => $request->header('Authorization'),
-            'query_params' => $request->query(),
-        ]);
-
-        // Check if user is authenticated
         if (!$request->user()) {
             Log::error('AdminUserController::getUsers - No authenticated user');
             return response()->json(['error' => 'Unauthorized'], 401);
@@ -29,9 +20,6 @@ class AdminUserController extends Controller
         $page = (int) $request->query('page', 1);
         $limit = (int) $request->query('limit', 10);
         $search = $request->query('search', '');
-
-        Log::info('Fetching users with params', compact('role', 'page', 'limit', 'search'));
-
         $query = User::where('role', $role)
             ->with('progress');
 
@@ -48,12 +36,6 @@ class AdminUserController extends Controller
 
         // Apply pagination with eager loading
         $users = $query->paginate($limit, ['*'], 'page', $page);
-
-        Log::info('Fetched users successfully', [
-            'total' => $total,
-            'count' => $users->count(),
-            'page' => $page,
-        ]);
 
         // Transform users to match frontend format
         $formattedUsers = $users->map(function ($user) {

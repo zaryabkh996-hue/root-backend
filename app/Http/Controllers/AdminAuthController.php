@@ -14,10 +14,6 @@ class AdminAuthController extends Controller
      */
     public function login(Request $request)
     {
-        \Log::info('🔐 [ADMIN_AUTH] Login attempt started', [
-            'email' => $request->input('email')
-        ]);
-
         $validated = $request->validate([
             'email' => 'required|email',
             'password' => 'required|string|min:6',
@@ -28,59 +24,29 @@ class AdminAuthController extends Controller
             $user = User::where('email', $validated['email'])->first();
 
             if (!$user) {
-                \Log::warning('⚠️ [ADMIN_AUTH] User not found', [
-                    'email' => $validated['email']
-                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid email or password.'
                 ], 401);
             }
 
-            \Log::info('👤 [ADMIN_AUTH] User found', [
-                'user_id' => $user->id,
-                'role' => $user->role
-            ]);
-
-            // Check if user has admin or custodian role
-            if (!in_array($user->role, ['admin', 'custodian'])) {
-                \Log::warning('❌ [ADMIN_AUTH] Unauthorized role', [
-                    'user_id' => $user->id,
-                    'role' => $user->role
-                ]);
+            // Check if user has admin 
+            if (!in_array($user->role, ['admin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have admin access.'
                 ], 403);
             }
 
-           
-                
-                // Quick fix: Update password on failed attempt
-                $user->update(['password' => Hash::make($validated['password'])]);
-                
-                \Log::info('✅ [ADMIN_AUTH] Password updated successfully', [
-                    'user_id' => $user->id
-                ]);
-          
-
-            \Log::info('✅ [ADMIN_AUTH] Password verified', [
-                'user_id' => $user->id
-            ]);
-
+            // Verify password using Hash::check
+            if (!Hash::check($validated['password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid email or password.'
+                ], 401);
+            }
             // Create API token
             $token = $user->createToken('admin-token')->plainTextToken;
-
-            \Log::info('🔑 [ADMIN_AUTH] Admin token created', [
-                'user_id' => $user->id,
-                'role' => $user->role
-            ]);
-
-            \Log::info('✅ [ADMIN_AUTH] Admin login successful', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'role' => $user->role
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -116,15 +82,10 @@ class AdminAuthController extends Controller
      */
     public function logout(Request $request)
     {
-        \Log::info('🔓 [ADMIN_AUTH] Logout started', [
-            'user_id' => $request->user()?->id
-        ]);
+
 
         if ($request->user()) {
             $request->user()->currentAccessToken()->delete();
-            \Log::info('✅ [ADMIN_AUTH] Logout successful', [
-                'user_id' => $request->user()->id
-            ]);
         }
 
         return response()->json([
@@ -140,7 +101,7 @@ class AdminAuthController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || !in_array($user->role, ['admin', 'custodian'])) {
+        if (!$user || !in_array($user->role, ['admin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized'

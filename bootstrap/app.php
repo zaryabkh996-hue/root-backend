@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // API uses stateless Bearer token authentication (no CSRF needed)
         // EnsureFrontendRequestsAreStateful is NOT used - we use pure token-based auth
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureAdminRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
