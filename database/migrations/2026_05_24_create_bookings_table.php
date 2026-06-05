@@ -18,6 +18,11 @@ return new class extends Migration
             $table->date('booking_date');
             $table->string('booking_time'); // e.g., "12:00pm"
             $table->text('message')->nullable();
+            $table->string('session_type')->nullable();
+            $table->integer('session_duration')->nullable(); // in minutes
+            $table->string('platform_link')->nullable();
+            $table->string('booking_reference')->nullable()->unique();
+            $table->decimal('amount_charged_usd', 8, 2)->nullable();
             $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
             $table->timestamps();
             
