@@ -83,7 +83,7 @@
 
         <!-- CTA Button -->
         <div style="text-align: center;">
-          <a href="https://root-frontend-production.up.railway.app/bookings" style="display: inline-block; background: #c9a14a; color: #0a1810; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">
+          <a href="{{ config('app.frontend_url') }}/bookings" style="display: inline-block; background: #c9a14a; color: #0a1810; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">
             View Your Bookings
           </a>
         </div>

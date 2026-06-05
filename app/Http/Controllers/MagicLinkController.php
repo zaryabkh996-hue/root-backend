@@ -65,7 +65,7 @@ class MagicLinkController extends Controller
             ]);
 
             // Build verification URL (frontend URL)
-            $frontendUrl = 'https://root-frontend-production.up.railway.app';
+            $frontendUrl = config('app.frontend_url');
             $magicUrl = "{$frontendUrl}/auth/verify-magic-link?token={$token}";
 
             \Log::debug('🔗 [MAGIC_LINK] Magic link URL generated', [
@@ -186,7 +186,7 @@ class MagicLinkController extends Controller
             ]);
 
             // Build verification URL (frontend URL)
-           $frontendUrl = 'https://root-frontend-production.up.railway.app';
+            $frontendUrl = config('app.frontend_url');
             $magicUrl = "{$frontendUrl}/auth/verify-magic-link?token={$token}";
 
             \Log::debug('🔗 [MAGIC_LINK] Sign-in link URL generated', [
