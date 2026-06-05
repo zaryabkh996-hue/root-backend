@@ -25,7 +25,9 @@ use App\Http\Controllers\CommunityReportController;
 // PUBLIC ROUTES - No authentication required
 // ──────────────────────────────────────────────────────────────────────────
 
-
+Route::get('/test', function () {
+    return response()->json(['ok' => true]);
+});
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/auth/register-oauth', [AuthController::class, 'registerOAuth']);
