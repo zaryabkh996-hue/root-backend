@@ -24,7 +24,7 @@ class CustodianController extends Controller
 
             $query = User::where('role', 'custodian')
                 ->where(function ($q) {
-                    $q->where('status', 'active')->orWhereNull('status');
+                    $q->where('status', 'active');
                 })
                 ->withCount('bookings as sessions');
 
@@ -137,11 +137,12 @@ class CustodianController extends Controller
                     'services' => $request->services ?? $user->services ?? [],
                 ]);
             } else {
+                $password = Str::random(16);
                 // Create new user with temporary password
                 $user = User::create([
                     'name' => $request->name,
                     'email' => $request->email,
-                    'password' => Hash::make(uniqid('temp_', true)), // Temporary password
+                    'password' => Hash::make($password), // Temporary password
                     'role' => 'custodian',
                     'status' => 'pending',
                     'location' => $request->location,
@@ -180,8 +181,6 @@ class CustodianController extends Controller
     {
         try {
         
-            Log::info('CustodianController::getForAdmin called by user ' . $request->user()->id);
-
             $page = (int) $request->query('page', 1);
             $limit = (int) $request->query('limit', 10);
             $search = $request->query('search', '');
@@ -237,14 +236,9 @@ class CustodianController extends Controller
      */
     public function store(Request $request)
     {
-        Log::info('CustodianController::store called');
-        Log::info('Request data: ' . json_encode($request->all()));
-        Log::info('Authenticated user: ' . ($request->user() ? $request->user()->id : 'none'));
-        
         try {
             // Check if user is authenticated
             if (!$request->user()) {
-                Log::warning('Unauthenticated access attempt to store custodian');
                 return response()->json(['error' => 'Unauthenticated'], 401);
             }
 
@@ -275,11 +269,11 @@ class CustodianController extends Controller
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
-
+$password = Str::random(16);
             $custodian = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
-                'password' => Hash::make(12345),
+                'password' => $password,
                 'role' => 'custodian',
                 'status' => $request->status ?? 'active',
                 'location' => $request->location,
@@ -304,8 +298,6 @@ class CustodianController extends Controller
                 'testimonials' => $request->testimonials ?? [],
             ]);
 
-            Log::info('Custodian created: ' . $custodian->id);
-
             return response()->json([
                 'success' => true,
                 'data' => $custodian,
@@ -323,9 +315,6 @@ class CustodianController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            Log::info('CustodianController::update called for ID: ' . $id);
-            Log::info('Request data: ' . json_encode($request->all()));
-
             $custodian = User::where('role', 'custodian')->find($id);
             if (!$custodian) {
                 return response()->json(['error' => 'Custodian not found'], 404);
@@ -357,7 +346,6 @@ class CustodianController extends Controller
             ]);
 
             if ($validator->fails()) {
-                Log::warning('Validation failed: ' . json_encode($validator->errors()));
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
@@ -376,11 +364,7 @@ class CustodianController extends Controller
                 }
             }
 
-            Log::info('Update data prepared: ' . json_encode($updateData));
-
             $custodian->update($updateData);
-
-            Log::info('Custodian updated successfully: ' . $id);
 
             return response()->json([
                 'success' => true,
@@ -389,7 +373,6 @@ class CustodianController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('CustodianController::update - Error: ' . $e->getMessage());
-            Log::error('CustodianController::update - Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'error' => 'Failed to update custodian: ' . $e->getMessage(),
                 'details' => $e->getMessage()
@@ -411,8 +394,6 @@ class CustodianController extends Controller
             }
 
             $custodian->delete();
-
-            Log::info('Custodian deleted: ' . $id);
 
             return response()->json([
                 'success' => true,

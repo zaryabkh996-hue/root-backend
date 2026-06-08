@@ -8,6 +8,7 @@ use App\Helpers\MailjetHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class BookingController extends Controller
 {
@@ -19,14 +20,17 @@ class BookingController extends Controller
         try {
             // Check if user is authenticated
             if (!$request->user()) {
-                Log::warning('Unauthenticated access attempt to create booking');
                 return response()->json(['error' => 'Unauthenticated'], 401);
             }
 
-            Log::info('BookingController::store called by user ' . $request->user()->id);
+
 
             $validator = Validator::make($request->all(), [
-                'custodian_id' => 'required|integer|exists:users,id',
+                'custodian_id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('users', 'id')->where('role', 'custodian'),
+                ],
                 'booking_date' => 'required|date',
                 'booking_time' => 'required|string',
                 'message' => 'nullable|string|max:500',
@@ -54,14 +58,10 @@ class BookingController extends Controller
                 'status' => 'pending',
             ]);
 
-            Log::info('Booking created: ' . $booking->id);
+
 
             // Send email to customer
             try {
-                Log::info('📧 [BOOKING] Sending confirmation email to customer', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email
-                ]);
 
                 $customerEmail = new BookingEmail(
                     $booking,
@@ -79,24 +79,12 @@ class BookingController extends Controller
                     'OurRoots.Africa'
                 );
 
-                Log::info('✅ [BOOKING] Customer email sent successfully', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email
-                ]);
+
             } catch (\Exception $emailError) {
-                Log::error('❌ [BOOKING] Failed to send customer email', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email,
-                    'error' => $emailError->getMessage()
-                ]);
             }
 
             // Send email to custodian
             try {
-                Log::info('📧 [BOOKING] Sending notification email to custodian', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email
-                ]);
 
                 $custodianEmail = new BookingEmail(
                     $booking,
@@ -114,16 +102,8 @@ class BookingController extends Controller
                     'OurRoots.Africa'
                 );
 
-                Log::info('✅ [BOOKING] Custodian email sent successfully', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email
-                ]);
+
             } catch (\Exception $emailError) {
-                Log::error('❌ [BOOKING] Failed to send custodian email', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email,
-                    'error' => $emailError->getMessage()
-                ]);
             }
 
             return response()->json([
@@ -132,7 +112,6 @@ class BookingController extends Controller
                 'message' => 'Booking created successfully',
             ], 201);
         } catch (\Exception $e) {
-            Log::error('BookingController::store - Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to create booking: ' . $e->getMessage()], 500);
         }
     }
@@ -157,7 +136,6 @@ class BookingController extends Controller
                 'data' => $bookings,
             ]);
         } catch (\Exception $e) {
-            Log::error('BookingController::getUserBookings - Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch bookings'], 500);
         }
     }
@@ -169,7 +147,6 @@ class BookingController extends Controller
     {
        
          if (!$request->user()) {
-            Log::warning('Unauthenticated access attempt to custodian bookings');
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
         try {
@@ -179,13 +156,11 @@ class BookingController extends Controller
                 ->orderBy('booking_date', 'asc')
                 ->get();
 
-                Log::info('BookingController::getCustodianBookings - Fetched ' . $bookings->count() . ' bookings for custodian ' . $request->user()->id);
             return response()->json([
                 'success' => true,
                 'data' => $bookings,
             ]);
         } catch (\Exception $e) {
-            Log::error('BookingController::getCustodianBookings - Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch bookings'], 500);
         }
     }
@@ -209,14 +184,10 @@ class BookingController extends Controller
 
             $booking->update(['status' => 'cancelled']);
 
-            Log::info('Booking cancelled: ' . $id);
+
 
             // Send email to customer
             try {
-                Log::info('📧 [BOOKING] Sending cancellation email to customer', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email
-                ]);
 
                 $customerEmail = new BookingEmail(
                     $booking,
@@ -234,24 +205,12 @@ class BookingController extends Controller
                     'OurRoots.Africa'
                 );
 
-                Log::info('✅ [BOOKING] Customer cancellation email sent successfully', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email
-                ]);
+
             } catch (\Exception $emailError) {
-                Log::error('❌ [BOOKING] Failed to send customer cancellation email', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email,
-                    'error' => $emailError->getMessage()
-                ]);
             }
 
             // Send email to custodian
             try {
-                Log::info('📧 [BOOKING] Sending cancellation email to custodian', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email
-                ]);
 
                 $custodianEmail = new BookingEmail(
                     $booking,
@@ -269,16 +228,8 @@ class BookingController extends Controller
                     'OurRoots.Africa'
                 );
 
-                Log::info('✅ [BOOKING] Custodian cancellation email sent successfully', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email
-                ]);
+
             } catch (\Exception $emailError) {
-                Log::error('❌ [BOOKING] Failed to send custodian cancellation email', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email,
-                    'error' => $emailError->getMessage()
-                ]);
             }
 
             return response()->json([
@@ -286,7 +237,6 @@ class BookingController extends Controller
                 'message' => 'Booking cancelled successfully',
             ]);
         } catch (\Exception $e) {
-            Log::error('BookingController::cancel - Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to cancel booking'], 500);
         }
     }
@@ -332,15 +282,10 @@ class BookingController extends Controller
 
             $booking->update($updateData);
 
-            Log::info('Booking ' . $id . ' status updated to: ' . $request->status);
+
 
             // Send email to customer
             try {
-                Log::info('📧 [BOOKING] Sending update email to customer', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email,
-                    'new_status' => $request->status
-                ]);
 
                 $customerEmail = new BookingEmail(
                     $booking,
@@ -358,26 +303,12 @@ class BookingController extends Controller
                     'OurRoots.Africa'
                 );
 
-                Log::info('✅ [BOOKING] Customer update email sent successfully', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email,
-                    'new_status' => $request->status
-                ]);
+
             } catch (\Exception $emailError) {
-                Log::error('❌ [BOOKING] Failed to send customer update email', [
-                    'booking_id' => $booking->id,
-                    'customer_email' => $booking->user->email,
-                    'error' => $emailError->getMessage()
-                ]);
             }
 
             // Send email to custodian
             try {
-                Log::info('📧 [BOOKING] Sending update email to custodian', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email,
-                    'new_status' => $request->status
-                ]);
 
                 $custodianEmail = new BookingEmail(
                     $booking,
@@ -395,17 +326,8 @@ class BookingController extends Controller
                     'OurRoots.Africa'
                 );
 
-                Log::info('✅ [BOOKING] Custodian update email sent successfully', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email,
-                    'new_status' => $request->status
-                ]);
+
             } catch (\Exception $emailError) {
-                Log::error('❌ [BOOKING] Failed to send custodian update email', [
-                    'booking_id' => $booking->id,
-                    'custodian_email' => $booking->custodian->email,
-                    'error' => $emailError->getMessage()
-                ]);
             }
 
             return response()->json([
@@ -414,7 +336,6 @@ class BookingController extends Controller
                 'message' => 'Booking updated successfully',
             ]);
         } catch (\Exception $e) {
-            Log::error('BookingController::update - Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to update booking'], 500);
         }
     }

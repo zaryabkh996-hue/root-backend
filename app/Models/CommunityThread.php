@@ -44,6 +44,11 @@ class CommunityThread extends Model
         return $this->hasMany(CommunityReply::class, 'thread_id')->orderBy('created_at', 'asc');
     }
 
+    public function latestReply(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CommunityReply::class, 'thread_id')->latestOfMany();
+    }
+
     public function getRepliesCount()
     {
         return $this->replies()->count();

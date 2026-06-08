@@ -17,28 +17,37 @@ class CommunityThreadController extends Controller
             return response()->json(['error' => 'Hub not found'], 404);
         }
 
-        $threads = CommunityThread::where('hub_id', $hubId)
+        $paginator = CommunityThread::where('hub_id', $hubId)
             ->where('is_active', true)
-            ->with(['author', 'replies'])
+            ->withCount('replies')
+            ->with(['author', 'latestReply'])
             ->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($thread) {
-                return [
-                    'id' => $thread->id,
-                    'title' => $thread->title,
-                    'excerpt' => substr($thread->content, 0, 150) . '...',
-                    'author' => $thread->author->name,
-                    'author_initials' => substr($thread->author->name, 0, 1),
-                    'time_ago' => $thread->created_at->diffForHumans(),
-                    'replies_count' => $thread->getRepliesCount(),
-                    'last_reply_time' => $thread->getLastReply() ? $thread->getLastReply()->created_at->diffForHumans() : 'Never',
-                ];
-            });
+            ->paginate(20);
+
+        $formattedThreads = collect($paginator->items())->map(function ($thread) {
+            return [
+                'id' => $thread->id,
+                'title' => $thread->title,
+                'excerpt' => substr($thread->content, 0, 150) . '...',
+                'author' => $thread->author->name,
+                'author_initials' => substr($thread->author->name, 0, 1),
+                'time_ago' => $thread->created_at->diffForHumans(),
+                'replies_count' => $thread->replies_count,
+                'last_reply_time' => $thread->latestReply ? $thread->latestReply->created_at->diffForHumans() : 'Never',
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $threads,
+            'data' => $formattedThreads,
+            'pagination' => [
+                'total' => $paginator->total(),
+                'count' => $paginator->count(),
+                'per_page' => $paginator->perPage(),
+                'current_page' => $paginator->currentPage(),
+                'total_pages' => $paginator->lastPage(),
+            ]
         ]);
     }
 

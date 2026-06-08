@@ -12,10 +12,24 @@ class CommunityHubController extends Controller
     // Get all active hubs with member counts
     public function index(): JsonResponse
     {
+        $userHubIds = [];
+        if (auth()->check()) {
+            $userHubIds = \DB::table('hub_members')
+                ->where('user_id', auth()->id())
+                ->pluck('hub_id')
+                ->flip()
+                ->toArray();
+        }
+
         $hubs = CommunityHub::where('is_active', true)
-            ->with(['members', 'threads'])
+            ->withCount([
+                'members',
+                'threads as active_threads_count' => function ($query) {
+                    $query->where('is_active', true);
+                }
+            ])
             ->get()
-            ->map(function ($hub) {
+            ->map(function ($hub) use ($userHubIds) {
                 return [
                     'id' => $hub->id,
                     'name' => $hub->name,
@@ -26,9 +40,9 @@ class CommunityHubController extends Controller
                     'access_level' => $hub->access_level,
                     'access_label' => $hub->access_label,
                     'border_color' => $hub->border_color,
-                    'members_count' => $hub->getMembersCount(),
-                    'active_threads_count' => $hub->getActiveThreadsCount(),
-                    'user_is_member' => auth()->check() ? $hub->userIsMember(auth()->id()) : false,
+                    'members_count' => $hub->members_count,
+                    'active_threads_count' => $hub->active_threads_count,
+                    'user_is_member' => auth()->check() ? isset($userHubIds[$hub->id]) : false,
                 ];
             });
 
@@ -41,11 +55,25 @@ class CommunityHubController extends Controller
     // Get single hub with threads
     public function show($id): JsonResponse
     {
-        $hub = CommunityHub::with(['threads.author', 'members'])
+        $hub = CommunityHub::withCount([
+                'members',
+                'threads as active_threads_count' => function ($query) {
+                    $query->where('is_active', true);
+                }
+            ])
+            ->with(['threads.author'])
             ->find($id);
 
         if (!$hub) {
             return response()->json(['error' => 'Hub not found'], 404);
+        }
+
+        $userIsMember = false;
+        if (auth()->check()) {
+            $userIsMember = \DB::table('hub_members')
+                ->where('hub_id', $hub->id)
+                ->where('user_id', auth()->id())
+                ->exists();
         }
 
         return response()->json([
@@ -60,9 +88,9 @@ class CommunityHubController extends Controller
                 'access_level' => $hub->access_level,
                 'access_label' => $hub->access_label,
                 'border_color' => $hub->border_color,
-                'members_count' => $hub->getMembersCount(),
-                'active_threads_count' => $hub->getActiveThreadsCount(),
-                'user_is_member' => auth()->check() ? $hub->userIsMember(auth()->id()) : false,
+                'members_count' => $hub->members_count,
+                'active_threads_count' => $hub->active_threads_count,
+                'user_is_member' => $userIsMember,
                 'threads' => $hub->threads->map(function ($thread) {
                     return [
                         'id' => $thread->id,

@@ -28,10 +28,17 @@ class LoungeController extends Controller
             $total = $query->count();
             $posts = $query->paginate($limit, ['*'], 'page', $page);
 
-            // Add isLiked field for the current user
+            // Add isLiked field for the current user using a single query to avoid N+1 queries
             $userId = $request->user()->id;
-            $items = $posts->getCollection()->map(function ($post) use ($userId) {
-                $post->isLiked = $post->isLikedBy($userId);
+            $postIds = $posts->pluck('id');
+            $likedPostIds = LoungePostLike::where('user_id', $userId)
+                ->whereIn('post_id', $postIds)
+                ->pluck('post_id')
+                ->flip()
+                ->toArray();
+
+            $items = $posts->getCollection()->map(function ($post) use ($likedPostIds) {
+                $post->isLiked = isset($likedPostIds[$post->id]);
                 return $post;
             });
 

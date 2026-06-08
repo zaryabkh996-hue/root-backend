@@ -158,19 +158,29 @@ class AuthController extends Controller
         ], 200);
     }
 
-    /**
-     * Refresh token
-     */
     public function refresh(Request $request)
     {
-        $token = Str::random(64);
+        $user = $request->user();
+        
+        if ($user) {
+            // Revoke current token
+            $user->currentAccessToken()->delete();
+            
+            // Create a new token
+            $token = $user->createToken('auth-token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'token' => $token,
+                ],
+            ], 200);
+        }
 
         return response()->json([
-            'success' => true,
-            'data' => [
-                'token' => $token,
-            ],
-        ], 200);
+            'success' => false,
+            'message' => 'Unauthenticated',
+        ], 401);
     }
 
     /**
@@ -281,30 +291,13 @@ class AuthController extends Controller
         }
 
         try {
-            // Get authenticated user from token (set by middleware)
-            // For now, we'll extract from the authorization header or from request
-            $authHeader = $request->header('Authorization');
-            $token = str_replace('Bearer ', '', $authHeader ?? '');
-
-            // If no token in header, user might be identified from session
-            // For this implementation, we expect the frontend to pass user context
-            $userId = $request->input('user_id');
-            
-            if (!$userId && !$token) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            // Find user by ID
-            $user = User::find($userId);
+            $user = $request->user();
 
             if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User not found'
-                ], 404);
+                    'message' => 'User not authenticated'
+                ], 401);
             }
 
             // Save quiz data

@@ -18,10 +18,7 @@ class MagicLinkController extends Controller
      */
     public function sendMagicLink(Request $request)
     {
-        \Log::info('📝 [MAGIC_LINK] Registration request received', [
-            'email' => $request->input('email'),
-            'name' => $request->input('name')
-        ]);
+        \Log::info('📝 [MAGIC_LINK] Registration request received');
         $validated = $request->validate([
             'email' => 'required|email',
            
@@ -30,14 +27,11 @@ class MagicLinkController extends Controller
         ]);
 
         try {
-            \Log::info('📝 [MAGIC_LINK] Registration request started', [
-                'email' => $validated['email']
-               
-            ]);
+            \Log::info('📝 [MAGIC_LINK] Registration request started');
 
             // Check if user already exists
             if (User::where('email', $validated['email'])->exists()) {
-                \Log::warning('⚠️ [MAGIC_LINK] User already exists', ['email' => $validated['email']]);
+                \Log::warning('⚠️ [MAGIC_LINK] User already exists');
                 return response()->json([
                     'success' => false,
                     'message' => 'An account with this email already exists. Please sign in instead.'
@@ -59,8 +53,6 @@ class MagicLinkController extends Controller
             ]);
 
             \Log::info('✨ [MAGIC_LINK] Magic link created', [
-                'email' => $validated['email'],
-                'token' => substr($token, 0, 10) . '...',
                 'expires_at' => $magicLink->expires_at
             ]);
 
@@ -68,14 +60,11 @@ class MagicLinkController extends Controller
             $frontendUrl = config('app.frontend_url');
             $magicUrl = "{$frontendUrl}/auth/verify-magic-link?token={$token}";
 
-            \Log::debug('🔗 [MAGIC_LINK] Magic link URL generated', [
-                'url' => $magicUrl
-            ]);
+            \Log::debug('🔗 [MAGIC_LINK] Magic link URL generated');
 
             // Send email via Mailjet API
             try {
                 \Log::info('📧 [MAGIC_LINK] Attempting to send email via Mailjet', [
-                    'email' => $validated['email'],
                     'template' => 'MagicLinkEmail'
                 ]);
 
@@ -93,13 +82,10 @@ class MagicLinkController extends Controller
                     'Amen Our Roots Africa'
                 );
 
-                \Log::info('✅ [MAGIC_LINK] Email sent successfully', [
-                    'email' => $validated['email']
-                ]);
+                \Log::info('✅ [MAGIC_LINK] Email sent successfully');
 
             } catch (\Exception $emailError) {
                 \Log::error('❌ [MAGIC_LINK] Email sending failed', [
-                    'email' => $validated['email'],
                     'error' => $emailError->getMessage(),
                     'file' => $emailError->getFile(),
                     'line' => $emailError->getLine()
@@ -114,7 +100,6 @@ class MagicLinkController extends Controller
 
         } catch (\Exception $e) {
             \Log::error('❌ [MAGIC_LINK] Registration request failed', [
-                'email' => $validated['email'] ?? 'unknown',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -131,24 +116,20 @@ class MagicLinkController extends Controller
      */
     public function signInMagicLink(Request $request)
     {
-        \Log::info('📝 [MAGIC_LINK] Sign-in request received', [
-            'email' => $request->input('email')
-        ]);
+        \Log::info('📝 [MAGIC_LINK] Sign-in request received');
 
         $validated = $request->validate([
             'email' => 'required|email',
         ]);
 
         try {
-            \Log::info('📝 [MAGIC_LINK] Sign-in request started', [
-                'email' => $validated['email']
-            ]);
+            \Log::info('📝 [MAGIC_LINK] Sign-in request started');
 
             // Check if user exists
             $user = User::where('email', $validated['email'])->first();
             
             if (!$user) {
-                \Log::warning('⚠️ [MAGIC_LINK] User not found', ['email' => $validated['email']]);
+                \Log::warning('⚠️ [MAGIC_LINK] User not found');
                 return response()->json([
                     'success' => false,
                     'message' => 'No account found with this email.',
@@ -161,8 +142,7 @@ class MagicLinkController extends Controller
             }
 
             \Log::info('👤 [MAGIC_LINK] User found', [
-                'user_id' => $user->id,
-                'email' => $validated['email']
+                'user_id' => $user->id
             ]);
 
             // Revoke any existing unused magic links for this email
@@ -180,8 +160,7 @@ class MagicLinkController extends Controller
             ]);
 
             \Log::info('✨ [MAGIC_LINK] Magic link created for sign-in', [
-                'email' => $validated['email'],
-                'token' => substr($token, 0, 10) . '...',
+                'user_id' => $user->id,
                 'expires_at' => $magicLink->expires_at
             ]);
 
@@ -189,14 +168,11 @@ class MagicLinkController extends Controller
             $frontendUrl = config('app.frontend_url');
             $magicUrl = "{$frontendUrl}/auth/verify-magic-link?token={$token}";
 
-            \Log::debug('🔗 [MAGIC_LINK] Sign-in link URL generated', [
-                'url' => $magicUrl
-            ]);
+            \Log::debug('🔗 [MAGIC_LINK] Sign-in link URL generated');
 
             // Send email via Mailjet API
             try {
                 \Log::info('📧 [MAGIC_LINK] Attempting to send sign-in email via Mailjet', [
-                    'email' => $validated['email'],
                     'template' => 'MagicLinkEmail'
                 ]);
 
@@ -214,13 +190,10 @@ class MagicLinkController extends Controller
                     'Amen Our Roots Africa'
                 );
 
-                \Log::info('✅ [MAGIC_LINK] Sign-in email sent successfully', [
-                    'email' => $validated['email']
-                ]);
+                \Log::info('✅ [MAGIC_LINK] Sign-in email sent successfully');
 
             } catch (\Exception $emailError) {
                 \Log::error('❌ [MAGIC_LINK] Sign-in email sending failed', [
-                    'email' => $validated['email'],
                     'error' => $emailError->getMessage(),
                     'file' => $emailError->getFile(),
                     'line' => $emailError->getLine()
@@ -235,7 +208,6 @@ class MagicLinkController extends Controller
 
         } catch (\Exception $e) {
             \Log::error('❌ [MAGIC_LINK] Sign-in request failed', [
-                'email' => $validated['email'] ?? 'unknown',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -257,9 +229,7 @@ class MagicLinkController extends Controller
         ]);
 
         try {
-            \Log::info('🔐 [MAGIC_LINK] Verification request started', [
-                'token' => substr($validated['token'], 0, 10) . '...'
-            ]);
+            \Log::info('🔐 [MAGIC_LINK] Verification request started');
 
             $magicLink = MagicLink::where('token', $validated['token'])->first();
 
@@ -273,13 +243,12 @@ class MagicLinkController extends Controller
             }
 
             \Log::info('✓ [MAGIC_LINK] Token found', [
-                'email' => $magicLink->email,
                 'used' => $magicLink->used
             ]);
 
             // Check if already used
             if ($magicLink->used) {
-                \Log::warning('⚠️ [MAGIC_LINK] Token already used', ['email' => $magicLink->email]);
+                \Log::warning('⚠️ [MAGIC_LINK] Token already used');
                 return response()->json([
                     'success' => false,
                     'message' => 'This magic link has already been used.'
@@ -289,7 +258,6 @@ class MagicLinkController extends Controller
             // Check if expired
             if (!$magicLink->isValid()) {
                 \Log::warning('⚠️ [MAGIC_LINK] Token expired', [
-                    'email' => $magicLink->email,
                     'expires_at' => $magicLink->expires_at
                 ]);
                 $magicLink->delete();
@@ -299,14 +267,14 @@ class MagicLinkController extends Controller
                 ], 410);
             }
 
-            \Log::info('✓ [MAGIC_LINK] Token is valid and not used', ['email' => $magicLink->email]);
+            \Log::info('✓ [MAGIC_LINK] Token is valid and not used');
 
             // Check if user already exists (sign-in) or create new user (registration)
             $user = User::where('email', $magicLink->email)->first();
 
             if (!$user) {
                 // Registration: Create new user
-                \Log::info('👤 [MAGIC_LINK] Creating new user account', ['email' => $magicLink->email]);
+                \Log::info('👤 [MAGIC_LINK] Creating new user account');
 
                 $user = User::create([
                     'name' => $magicLink->name,
@@ -318,8 +286,7 @@ class MagicLinkController extends Controller
                 ]);
 
                 \Log::info('✅ [MAGIC_LINK] New user created successfully', [
-                    'user_id' => $user->id,
-                    'email' => $user->email
+                    'user_id' => $user->id
                 ]);
 
                 // Store quiz data if provided
@@ -332,8 +299,7 @@ class MagicLinkController extends Controller
             } else {
                 // Sign-in: User already exists
                 \Log::info('👤 [MAGIC_LINK] Existing user signing in', [
-                    'user_id' => $user->id,
-                    'email' => $user->email
+                    'user_id' => $user->id
                 ]);
             }
 
@@ -346,8 +312,7 @@ class MagicLinkController extends Controller
             \Log::info('🔑 [MAGIC_LINK] API token created', ['user_id' => $user->id]);
 
             \Log::info('✅ [MAGIC_LINK] Verification completed successfully', [
-                'user_id' => $user->id,
-                'email' => $user->email
+                'user_id' => $user->id
             ]);
 
             return response()->json([
@@ -364,7 +329,6 @@ class MagicLinkController extends Controller
 
         } catch (\Exception $e) {
             \Log::error('❌ [MAGIC_LINK] Verification failed', [
-                'token' => substr($validated['token'] ?? '', 0, 10) . '...',
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
