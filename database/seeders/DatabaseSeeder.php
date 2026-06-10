@@ -18,15 +18,17 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Create Admin User
-        $admin = User::create([
-            'name' => 'Admin',
-            'email' => 'admin@portal.com',
-            'password' => Hash::make('admin@portal.com'),
-            'role' => 'admin',
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@portal.com'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('admin@portal.com'),
+                'role' => 'admin',
+            ]
+        );
+
+        $this->call([
+            CustodianSeeder::class,
         ]);
-
-      
-
-       
     }
 }

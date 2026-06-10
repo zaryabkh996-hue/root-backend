@@ -99,9 +99,6 @@ class ProgressController extends Controller
      */
     public function completeModule(Request $request)
     {
-        Log::info('Received completeModule request', [
-            'user_id' => $request->user()->id,
-        ]);
         $validator = Validator::make($request->all(), [
             'module_id'        => 'required|string|max:20',
             'next_module_id'   => 'nullable|string|max:20',
