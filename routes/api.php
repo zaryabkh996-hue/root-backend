@@ -3,7 +3,6 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\MagicLinkController;
 use App\Http\Controllers\ProgressController;
 use App\Http\Controllers\AdminUserController;
@@ -15,9 +14,9 @@ use App\Http\Controllers\CommunityThreadController;
 use App\Http\Controllers\CommunityReplyController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CertificateController;
-use App\Http\Controllers\SeederController;
 use App\Http\Controllers\LoungeController;
 use App\Http\Controllers\CommunityReportController;
+use App\Http\Controllers\SearchController;
 
 
 
@@ -44,9 +43,11 @@ Route::post('/custodians/apply', [CustodianController::class, 'apply']);
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/search', [SearchController::class, 'search']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
     Route::post('/auth/save-quiz-data', [AuthController::class, 'saveQuizData']);
+    Route::post('/auth/onboarding', [AuthController::class, 'saveOnboarding']);
 
     // Admin Auth routes
     Route::post('/auth/admin/logout', [AdminAuthController::class, 'logout']);
@@ -110,7 +111,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // ADMIN ROUTES - Requires Sanctum token + admin role (consider adding middleware)
     // ──────────────────────────────────────────────────────────────────────────
     Route::middleware('admin')->prefix('admin')->group(function () {
-        Route::get('/libraries', [LibraryController::class, 'adminList']);
         Route::get('/users', [AdminUserController::class, 'getUsers']);
         Route::get('/custodians', [CustodianController::class, 'getForAdmin']);
         Route::get('/custodians/{id}', [CustodianController::class, 'show']);

@@ -18,7 +18,7 @@ class MagicLinkEmail extends Mailable
     {
         return new Envelope(
             subject: 'Your OurRoots.Africa Magic Link — Welcome Home',
-            from: config('mail.from.address', 'noreply@ourrootsafrica.com'),
+            from: config('mail.from.address', 'noreply@ourroots.africa'),
         );
     }
 

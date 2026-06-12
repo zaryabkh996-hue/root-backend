@@ -22,13 +22,15 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@portal.com'],
             [
                 'name' => 'Admin',
-                'password' => Hash::make('admin@portal.com'),
+                'password' => Hash::make(env('ADMIN_SEED_PASSWORD', 'admin@portal.com')),
                 'role' => 'admin',
             ]
         );
 
         $this->call([
             CustodianSeeder::class,
+            CommunityHubSeeder::class,
+            CommunityThreadSeeder::class,
         ]);
     }
 }

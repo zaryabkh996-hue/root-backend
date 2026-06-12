@@ -53,6 +53,7 @@ class ProfileController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'whatsapp' => $user->whatsapp,
+                'subscriptionTier' => $user->subscription_tier,
                 'picture' => $getCompleteUrl($user->picture),
                 'bio' => $user->bio,
                 'bioPrivacy' => $user->bio_privacy,
@@ -109,6 +110,7 @@ class ProfileController extends Controller
                 'name' => 'sometimes|string|max:255',
                 'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
                 'whatsapp' => 'sometimes|string|max:20|nullable',
+                'subscriptionTier' => 'sometimes|string|in:free,community,preparation',
                 'bio' => 'sometimes|string|max:280|nullable',
                 'bioPrivacy' => 'sometimes|in:public,community,private',
                 'travelDate' => 'sometimes|string|nullable',
@@ -164,6 +166,9 @@ class ProfileController extends Controller
             if ($request->has('journeyPhotosDefault')) {
                 $dataToUpdate['journey_photos_default'] = $request->input('journeyPhotosDefault');
             }
+            if ($request->has('subscriptionTier')) {
+                $dataToUpdate['subscription_tier'] = $request->input('subscriptionTier');
+            }
             if ($request->has('showScorePublicly')) {
                 $dataToUpdate['show_score_publicly'] = $request->input('showScorePublicly');
             }
@@ -179,6 +184,7 @@ class ProfileController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'whatsapp' => $user->whatsapp,
+                    'subscriptionTier' => $user->subscription_tier,
                     'bio' => $user->bio,
                     'bioPrivacy' => $user->bio_privacy,
                     'travelDate' => $user->travel_date,

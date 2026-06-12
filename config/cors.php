@@ -20,9 +20,7 @@ return [
 
     'allowed_origins' => [
         'http://localhost:3000',
-        'http://localhost:3001',
-        'http://76.13.197.63',
-        
+       'https://ourroot.duckdns.org',
         
     ],
 

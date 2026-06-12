@@ -78,6 +78,7 @@ class CommunityThreadController extends Controller
                 'time_ago' => $thread->created_at->diffForHumans(),
                 'hub_id' => $thread->hub_id,
                 'hub_name' => $thread->hub->name,
+                'hub_access_level' => $thread->hub->access_level,
                 'replies' => $thread->replies->map(function ($reply) {
                     return [
                         'id' => $reply->id,

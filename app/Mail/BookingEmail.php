@@ -28,7 +28,7 @@ class BookingEmail extends Mailable
 
         return new Envelope(
             subject: $subject,
-            from: config('mail.from.address', 'noreply@amenourroots.com'),
+            from: config('mail.from.address', 'noreply@ourroots.africa'),
         );
     }
 

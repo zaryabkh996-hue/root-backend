@@ -291,10 +291,22 @@ class MagicLinkController extends Controller
 
                 // Store quiz data if provided
                 if ($magicLink->quiz_data) {
-                    $user->update([
-                        'quiz_data' => $magicLink->quiz_data
-                    ]);
-                    \Log::debug('💾 [MAGIC_LINK] Quiz data stored for new user', ['user_id' => $user->id]);
+                    $quizData = $magicLink->quiz_data;
+                    $learningPref = $quizData['onboardingAnswers']['whatBroughtYouHere'] ?? null;
+                    $travelDate = $quizData['onboardingAnswers']['travelTimeline'] ?? null;
+
+                    $updateData = [
+                        'quiz_data' => $quizData
+                    ];
+
+                    if (!empty($learningPref) && !empty($travelDate)) {
+                        $updateData['learning_preference'] = $learningPref;
+                        $updateData['travel_date'] = $travelDate;
+                        $updateData['onboarded'] = true;
+                    }
+
+                    $user->update($updateData);
+                    \Log::debug('💾 [MAGIC_LINK] Quiz data and onboarding status stored for new user', ['user_id' => $user->id]);
                 }
             } else {
                 // Sign-in: User already exists
@@ -322,7 +334,11 @@ class MagicLinkController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role
+                    'role' => $user->role,
+                    'onboarded' => (bool)$user->onboarded,
+                    'learning_preference' => $user->learning_preference,
+                    'travel_date' => $user->travel_date,
+                    'quiz_data' => $user->quiz_data,
                 ],
                 'token' => $token
             ]);

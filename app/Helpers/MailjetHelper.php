@@ -13,7 +13,7 @@ class MailjetHelper
         try {
             $apiKey = env('MAILJET_PUBLIC_KEY');
             $apiSecret = env('MAILJET_SECRET_KEY');
-            $fromEmail = env('MAILJET_FROM_EMAIL', 'noreply@amenourroots.com');
+            $fromEmail = env('MAILJET_FROM_EMAIL', 'noreply@ourroots.africa');
             
             \Log::info('🔵 [MAILJET] Email sending started', [
                 'recipient' => $email,

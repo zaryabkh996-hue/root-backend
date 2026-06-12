@@ -60,6 +60,10 @@ class AuthController extends Controller
                         'name' => $user->name,
                         'email' => $user->email,
                         'role' => $user->role,
+                        'subscription_tier' => $user->subscription_tier,
+                        'onboarded' => (bool)$user->onboarded,
+                        'learning_preference' => $user->learning_preference,
+                        'travel_date' => $user->travel_date,
                     ],
                 ],
             ], 201);
@@ -114,6 +118,11 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'subscription_tier' => $user->subscription_tier,
+                    'onboarded' => (bool)$user->onboarded,
+                    'learning_preference' => $user->learning_preference,
+                    'travel_date' => $user->travel_date,
+                    'quiz_data' => $user->quiz_data,
                 ],
             ],
         ], 200);
@@ -137,7 +146,12 @@ class AuthController extends Controller
                 'name'    => $user->name,
                 'email'   => $user->email,
                 'role'    => $user->role,
+                'subscription_tier' => $user->subscription_tier,
                 'picture' => $user->picture ?? null,
+                'onboarded' => (bool)$user->onboarded,
+                'learning_preference' => $user->learning_preference,
+                'travel_date' => $user->travel_date,
+                'quiz_data' => $user->quiz_data,
             ],
         ], 200);
     }
@@ -233,7 +247,7 @@ class AuthController extends Controller
                     'auth0_id' => $request->auth0_id,
                     'picture' => $request->picture,
                'password' => Hash::make(\Str::random(32)), // Random password since using magic link
-                    'provider' => $request->provider || 'auth0',
+                    'provider' => $request->provider ?? 'auth0',
                     'email_verified_at' => now(), // Email is verified by Auth0
                 ]);
                 
@@ -255,9 +269,13 @@ class AuthController extends Controller
                         'name' => $user->name,
                         'role' => $user->role,
                         'email' => $user->email,
+                        'subscription_tier' => $user->subscription_tier,
                         'picture' => $user->picture,
                         'auth0_id' => $user->auth0_id,
-                       
+                        'onboarded' => (bool)$user->onboarded,
+                        'learning_preference' => $user->learning_preference,
+                        'travel_date' => $user->travel_date,
+                        'quiz_data' => $user->quiz_data,
                     ],
                 ],
             ], $user->wasRecentlyCreated ? 201 : 200);
@@ -302,28 +320,115 @@ class AuthController extends Controller
 
             // Save quiz data
             if ($request->has('quiz_data') && $request->input('quiz_data')) {
-                $user->update([
-                    'quiz_data' => $request->input('quiz_data')
-                ]);
-            }
+                $quizData = $request->input('quiz_data');
+                $learningPref = $quizData['onboardingAnswers']['whatBroughtYouHere'] ?? null;
+                $travelDate = $quizData['onboardingAnswers']['travelTimeline'] ?? null;
 
-            
+                $updateData = [
+                    'quiz_data' => $quizData
+                ];
+
+                if (!empty($learningPref) && !empty($travelDate)) {
+                    $updateData['learning_preference'] = $learningPref;
+                    $updateData['travel_date'] = $travelDate;
+                    $updateData['onboarded'] = true;
+                }
+
+                $user->update($updateData);
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Quiz data saved successfully',
                 'data' => [
                     'user_id' => $user->id,
-                    'quiz_data_saved' => true
+                    'quiz_data_saved' => true,
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'subscription_tier' => $user->subscription_tier,
+                        'onboarded' => (bool)$user->onboarded,
+                        'learning_preference' => $user->learning_preference,
+                        'travel_date' => $user->travel_date,
+                        'quiz_data' => $user->quiz_data,
+                    ]
                 ]
             ], 200);
 
         } catch (\Exception $e) {
-            
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to save quiz data',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Save onboarding answers and mark user as onboarded
+     */
+    public function saveOnboarding(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'learning_preference' => 'required|string|max:255',
+            'travel_date' => 'required|string|max:255',
+            'quiz_data' => 'nullable|array'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+
+            $updateData = [
+                'learning_preference' => $request->input('learning_preference'),
+                'travel_date' => $request->input('travel_date'),
+                'onboarded' => true,
+            ];
+
+            if ($request->has('quiz_data')) {
+                $updateData['quiz_data'] = $request->input('quiz_data');
+            }
+
+            $user->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Onboarding complete',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'subscription_tier' => $user->subscription_tier,
+                        'onboarded' => (bool)$user->onboarded,
+                        'learning_preference' => $user->learning_preference,
+                        'travel_date' => $user->travel_date,
+                        'quiz_data' => $user->quiz_data,
+                    ]
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save onboarding data',
                 'error' => $e->getMessage(),
             ], 500);
         }
