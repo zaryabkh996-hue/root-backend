@@ -72,6 +72,7 @@ class LoungeController extends Controller
                 'category' => $request->category,
             ]);
 
+            $post->refresh();
             $post->load('user');
 
             return response()->json([
@@ -166,10 +167,16 @@ class LoungeController extends Controller
                 'likes_received' => LoungePost::where('user_id', $userId)->sum('likes_count'),
             ];
 
+            $hotTopics = LoungePost::orderBy('replies_count', 'desc')
+                ->orderBy('likes_count', 'desc')
+                ->limit(4)
+                ->get(['id', 'content', 'category', 'replies_count']);
+
             return response()->json([
                 'totalMembers' => $totalMembers,
                 'activeToday' => $activeToday,
                 'userStats' => $userStats,
+                'hotTopics' => $hotTopics,
             ]);
         } catch (\Exception $e) {
             Log::error('LoungeController::stats - Error: ' . $e->getMessage());

@@ -197,7 +197,7 @@ class ProgressController extends Controller
             'key'       => $request->key,
         ], [
             'module_id' => 'required|string|max:20',
-            'key'       => 'required|string|in:sprout,feather,stone',
+            'key'       => 'required|string|max:100',
         ]);
 
         if ($validator->fails()) {

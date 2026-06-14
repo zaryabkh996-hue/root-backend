@@ -352,11 +352,176 @@ table.card td.inner {
 HTML;
     }
 
+    private function generateCustodianCertificateHtml(User $user, UserProgress $progress): string
+    {
+        $completionDate = now()->format('d F Y');
+        $userName = htmlspecialchars($user->name ?? '');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: letter portrait;
+    margin: 0;
+}
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: #0b1a12;
+}
+* {
+    box-sizing: border-box;
+}
+body {
+    font-family: Georgia, serif;
+    background: #0b1a12;
+    color: #f0ebe0;
+}
+table.outer {
+    width: 100%;
+    border-collapse: collapse;
+    background: #0b1a12;
+}
+table.outer td {
+    padding: 24pt;
+    vertical-align: top;
+}
+table.card {
+    width: 100%;
+    border-collapse: collapse;
+    background: #11261b;
+    border: 5pt double #c9a14a;
+}
+table.card td.inner {
+    padding: 40pt 30pt;
+    text-align: center;
+    vertical-align: top;
+}
+.eyebrow {
+    color: #c9a14a;
+    font-size: 10pt;
+    letter-spacing: 2pt;
+    text-transform: uppercase;
+    margin-bottom: 20pt;
+    font-weight: bold;
+}
+.title {
+    font-size: 24pt;
+    color: #f0ebe0;
+    margin-bottom: 8pt;
+    font-weight: normal;
+}
+.subtitle {
+    font-style: italic;
+    font-size: 11pt;
+    color: #8a7f72;
+    margin-bottom: 16pt;
+}
+.name {
+    font-size: 22pt;
+    font-weight: bold;
+    color: #c9a14a;
+    border-bottom: 1.5pt solid rgba(201,161,74,0.3);
+    display: inline-block;
+    padding-bottom: 4pt;
+    margin-bottom: 16pt;
+}
+.description {
+    font-size: 11pt;
+    color: #c5bfae;
+    line-height: 1.7;
+    margin: 0 auto 20pt;
+    padding: 0 20pt;
+}
+.divider {
+    border: none;
+    border-top: 1pt solid rgba(201,161,74,0.2);
+    margin: 16pt auto;
+    width: 80%;
+}
+.meta-table {
+    width: 80%;
+    margin: 16pt auto 0;
+    border-collapse: collapse;
+}
+.meta-table td {
+    width: 50%;
+    text-align: center;
+}
+.meta-label {
+    font-size: 8pt;
+    color: #8a7f72;
+    letter-spacing: 1pt;
+    margin-bottom: 4pt;
+    text-transform: uppercase;
+}
+.meta-value {
+    font-size: 11pt;
+    color: #f0ebe0;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<table class="outer" cellpadding="0" cellspacing="0">
+    <tr>
+        <td>
+            <table class="card" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td class="inner">
+                        <div class="eyebrow">OurRoots Africa Custodian Certificate</div>
+                        
+                        <div class="title">Afrofeast Certified Custodian</div>
+                        <div class="subtitle">This certifies that</div>
+                        
+                        <div class="name">$userName</div>
+                        
+                        <div class="description">
+                            has successfully completed all modules of the <strong>Heritage Training Programme</strong>.
+                            Having demonstrated profound cultural grounding, emotional first-aid readiness, and radical transparency protocols,
+                            they are officially certified as a premium heritage guardian.
+                        </div>
+                        
+                        <hr class="divider" />
+                        
+                        <table class="meta-table">
+                            <tr>
+                                <td>
+                                    <div class="meta-label">Issued Date</div>
+                                    <div class="meta-value">$completionDate</div>
+                                </td>
+                                <td>
+                                    <div class="meta-label">Credential Status</div>
+                                    <div class="meta-value" style="color: #4ade80;">Active & Verified</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
+HTML;
+    }
+
     public function generatePdf(User $user, UserProgress $progress)
     {
         try {
-
-            $html = $this->generateCertificateHtml($user, $progress);
+            if ($user->role === 'custodian') {
+                $html = $this->generateCustodianCertificateHtml($user, $progress);
+            } else {
+                $html = $this->generateCertificateHtml($user, $progress);
+            }
 
             $pdf = Pdf::loadHTML($html)
                 ->setPaper('letter', 'portrait')

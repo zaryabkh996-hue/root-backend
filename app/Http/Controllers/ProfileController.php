@@ -66,6 +66,7 @@ class ProfileController extends Controller
                 'showScorePublicly' => $user->show_score_publicly,
                 'notificationPreferences' => $notifications,
                 'memberSince' => $user->created_at ? $user->created_at->format('d M Y') : null,
+                'certification' => $user->certification,
             ];
 
             // Add progress info if exists
@@ -120,6 +121,7 @@ class ProfileController extends Controller
                 'profileVisibility' => 'sometimes|in:public,community,private',
                 'journeyPhotosDefault' => 'sometimes|in:public,community,private',
                 'showScorePublicly' => 'sometimes|boolean',
+                'certification' => 'sometimes|string|nullable',
             ]);
 
             if ($validator->fails()) {
@@ -172,6 +174,9 @@ class ProfileController extends Controller
             if ($request->has('showScorePublicly')) {
                 $dataToUpdate['show_score_publicly'] = $request->input('showScorePublicly');
             }
+            if ($request->has('certification')) {
+                $dataToUpdate['certification'] = $request->input('certification');
+            }
 
             // Update user
             $user->update($dataToUpdate);
@@ -194,6 +199,7 @@ class ProfileController extends Controller
                     'profileVisibility' => $user->profile_visibility,
                     'journeyPhotosDefault' => $user->journey_photos_default,
                     'showScorePublicly' => $user->show_score_publicly,
+                    'certification' => $user->certification,
                 ],
             ], 200);
 

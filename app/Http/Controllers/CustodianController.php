@@ -404,4 +404,103 @@ $password = Str::random(16);
             return response()->json(['error' => 'Failed to delete custodian'], 500);
         }
     }
+
+    /**
+     * Get the authenticated custodian's own profile
+     */
+    public function getProfile(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user || $user->role !== 'custodian') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized. Custodian role required.'
+                ], 403);
+            }
+
+            // Load bookings count as sessions
+            $user->loadCount('bookings as sessions');
+
+            return response()->json([
+                'success' => true,
+                'data' => $user,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('CustodianController::getProfile - Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch profile'], 500);
+        }
+    }
+
+    /**
+     * Update the authenticated custodian's own profile
+     */
+    public function updateProfile(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user || $user->role !== 'custodian') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized. Custodian role required.'
+                ], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'string|max:255|unique:users,name,' . $user->id,
+                'email' => 'email|unique:users,email,' . $user->id,
+                'location' => 'string|max:255',
+                'country' => 'string|max:255',
+                'years_experience' => 'integer|min:0',
+                'specialty' => 'string|max:255',
+                'availability' => 'in:Available,Booked',
+                'description' => 'string',
+                'price_from' => 'numeric|min:0',
+                'status' => 'in:active,inactive,suspended,pending',
+                'certification' => 'nullable|string',
+                'coc_status' => 'nullable|string',
+                'review_avg' => 'nullable|numeric',
+                'sessions_count' => 'nullable|integer',
+                'short_bio' => 'nullable|string',
+                'about' => 'nullable|string',
+                'whatsapp' => 'nullable|string',
+                'instagram' => 'nullable|string',
+                'linkedin' => 'nullable|string',
+                'languages' => 'nullable|array',
+                'services' => 'nullable|array',
+                'testimonials' => 'nullable|array',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            $updateData = [];
+            $fillableFields = [
+                'name', 'email', 'location', 'country', 'years_experience', 'specialty',
+                'availability', 'description', 'status', 'certification', 'coc_status',
+                'review_avg', 'sessions_count', 'short_bio', 'about', 'languages',
+                'services', 'testimonials', 'price_from', 'tags', 'whatsapp', 'instagram', 'linkedin'
+            ];
+
+            foreach ($fillableFields as $field) {
+                if ($request->has($field)) {
+                    $updateData[$field] = $request->input($field);
+                }
+            }
+
+            $user->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'data' => $user,
+                'message' => 'Profile updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('CustodianController::updateProfile - Error: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to update profile: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

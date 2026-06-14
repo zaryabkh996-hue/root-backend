@@ -65,6 +65,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile', [ProfileController::class, 'update']);
     Route::put('/user/notifications', [ProfileController::class, 'updateNotifications']);
     Route::post('/user/profile/picture', [ProfileController::class, 'uploadPicture']);
+
+    // Custodian profile routes
+    Route::get('/custodian/profile', [CustodianController::class, 'getProfile']);
+    Route::put('/custodian/profile', [CustodianController::class, 'updateProfile']);
     
     // Journey photos routes
     Route::get('/user/journey-photos', [ProfileController::class, 'getJourneyPhotos']);
@@ -112,6 +116,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ──────────────────────────────────────────────────────────────────────────
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/users', [AdminUserController::class, 'getUsers']);
+        Route::get('/stats', [AdminUserController::class, 'getStats']);
         Route::get('/custodians', [CustodianController::class, 'getForAdmin']);
         Route::get('/custodians/{id}', [CustodianController::class, 'show']);
         Route::post('/custodians', [CustodianController::class, 'store']);

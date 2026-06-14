@@ -152,7 +152,7 @@ class BookingController extends Controller
         try {
           
             $bookings = Booking::where('custodian_id', $request->user()->id)
-                ->with('user')
+                ->with(['user', 'user.progress'])
                 ->orderBy('booking_date', 'asc')
                 ->get();
 
