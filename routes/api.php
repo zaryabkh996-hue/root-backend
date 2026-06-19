@@ -17,6 +17,10 @@ use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\LoungeController;
 use App\Http\Controllers\CommunityReportController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\KnowledgeBankController;
+use App\Http\Controllers\AmenAIController;
+use App\Http\Controllers\QuizController;
+use App\Http\Controllers\StripeController;
 
 
 
@@ -26,11 +30,17 @@ use App\Http\Controllers\SearchController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/quiz/submit', [QuizController::class, 'submit']);
+Route::post('/quiz/onboarding', [QuizController::class, 'saveOnboardingAnswers']);
+Route::get('/quiz/report/{token}', [QuizController::class, 'getReport']);
 Route::post('/auth/register-oauth', [AuthController::class, 'registerOAuth']);
 Route::post('/auth/magic-link/send', [MagicLinkController::class, 'sendMagicLink']);
 Route::post('/auth/magic-link/signin', [MagicLinkController::class, 'signInMagicLink']);
 Route::post('/auth/magic-link/verify', [MagicLinkController::class, 'verifyMagicLink']);
 Route::post('/auth/admin/login', [AdminAuthController::class, 'login']);
+
+// Public Stripe Webhook (No CSRF/Auth)
+Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
 
 // Public custodians routes (no auth required)
 Route::get('/custodians', [CustodianController::class, 'getAll']);
@@ -43,6 +53,7 @@ Route::post('/custodians/apply', [CustodianController::class, 'apply']);
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/user/quiz-report', [QuizController::class, 'userReport']);
     Route::get('/search', [SearchController::class, 'search']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
@@ -112,6 +123,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lounge/stats', [LoungeController::class, 'stats']);
 
     // ──────────────────────────────────────────────────────────────────────────
+    // AMEN AI ROUTES - Chat with Amen AI companion
+    // ──────────────────────────────────────────────────────────────────────────
+    Route::post('/amen-ai/chat', [AmenAIController::class, 'chat']);
+    Route::get('/amen-ai/history', [AmenAIController::class, 'history']);
+    Route::get('/amen-ai/history/{conversationId}', [AmenAIController::class, 'sessionMessages']);
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // KNOWLEDGE BANK ROUTES - Custodian knowledge contributions
+    // ──────────────────────────────────────────────────────────────────────────
+    Route::post('/knowledge-bank/submit', [KnowledgeBankController::class, 'submit']);
+    Route::get('/knowledge-bank/my-contributions', [KnowledgeBankController::class, 'myContributions']);
+    Route::get('/knowledge-bank/contributions/{id}', [KnowledgeBankController::class, 'show']);
+
+    // ──────────────────────────────────────────────────────────────────────────
     // ADMIN ROUTES - Requires Sanctum token + admin role (consider adding middleware)
     // ──────────────────────────────────────────────────────────────────────────
     Route::middleware('admin')->prefix('admin')->group(function () {
@@ -132,6 +157,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/community/reports/{id}/warn', [CommunityReportController::class, 'warn']);
         Route::post('/community/reports/{id}/ban', [CommunityReportController::class, 'ban']);
         Route::post('/community/reports/{id}/dismiss', [CommunityReportController::class, 'dismiss']);
+
+        // Knowledge Bank admin routes
+        Route::get('/knowledge-bank/contributions', [KnowledgeBankController::class, 'adminIndex']);
+        Route::put('/knowledge-bank/contributions/{id}/status', [KnowledgeBankController::class, 'updateStatus']);
+        Route::post('/knowledge-bank/embed/{id}', [KnowledgeBankController::class, 'embed']);
     });
+
+    // Stripe billing and checkout routes
+    Route::post('/stripe/checkout', [StripeController::class, 'createCheckoutSession']);
+    Route::post('/stripe/portal', [StripeController::class, 'createPortalSession']);
     
 });
+

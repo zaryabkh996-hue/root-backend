@@ -21,9 +21,10 @@ class MagicLinkController extends Controller
         \Log::info('📝 [MAGIC_LINK] Registration request received');
         $validated = $request->validate([
             'email' => 'required|email',
-           
+            'name' => 'nullable|string',
             'whatsapp' => 'nullable|string',
-            'quiz_data' => 'nullable|array'
+            'quiz_data' => 'nullable|array',
+            'quiz_token' => 'nullable|string'
         ]);
 
         try {
@@ -38,6 +39,15 @@ class MagicLinkController extends Controller
                 ], 409);
             }
 
+            // Resolve quiz token if provided
+            $quizData = $validated['quiz_data'] ?? null;
+            if (!empty($validated['quiz_token'])) {
+                $resolved = \Illuminate\Support\Facades\Cache::get("quiz:{$validated['quiz_token']}");
+                if ($resolved) {
+                    $quizData = $resolved;
+                }
+            }
+
             // Revoke any existing unused magic links for this email
             MagicLink::where('email', $validated['email'])->delete();
 
@@ -48,7 +58,7 @@ class MagicLinkController extends Controller
                 'token' => $token,
                 'name' => $validated['name'] ?? 'User',
                 'whatsapp' => $validated['whatsapp'] ?? null,
-                'quiz_data' => $validated['quiz_data'] ?? null,
+                'quiz_data' => $quizData,
                 'expires_at' => now()->addMinutes(15)
             ]);
 
@@ -306,7 +316,14 @@ class MagicLinkController extends Controller
                     }
 
                     $user->update($updateData);
-                    \Log::debug('💾 [MAGIC_LINK] Quiz data and onboarding status stored for new user', ['user_id' => $user->id]);
+
+                    // Update UserProgress
+                    $progress = \App\Models\UserProgress::firstOrNew(['user_id' => $user->id]);
+                    $progress->afro_score = $quizData['totalScore'] ?? 0;
+                    $progress->user_persona = $quizData['persona'] ?? 'Heritage Seeker';
+                    $progress->save();
+
+                    \Log::debug('💾 [MAGIC_LINK] Quiz data, progress, and onboarding status stored for new user', ['user_id' => $user->id]);
                 }
             } else {
                 // Sign-in: User already exists

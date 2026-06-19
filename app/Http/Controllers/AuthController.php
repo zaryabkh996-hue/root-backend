@@ -296,17 +296,10 @@ class AuthController extends Controller
      */
     public function saveQuizData(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'quiz_data' => 'nullable|array'
+        $validated = $request->validate([
+            'quiz_data' => 'nullable|array',
+            'quiz_token' => 'nullable|string'
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
 
         try {
             $user = $request->user();
@@ -319,8 +312,15 @@ class AuthController extends Controller
             }
 
             // Save quiz data
-            if ($request->has('quiz_data') && $request->input('quiz_data')) {
-                $quizData = $request->input('quiz_data');
+            $quizData = $request->input('quiz_data');
+            if ($request->filled('quiz_token')) {
+                $resolved = \Illuminate\Support\Facades\Cache::get("quiz:{$request->input('quiz_token')}");
+                if ($resolved) {
+                    $quizData = $resolved;
+                }
+            }
+
+            if ($quizData) {
                 $learningPref = $quizData['onboardingAnswers']['whatBroughtYouHere'] ?? null;
                 $travelDate = $quizData['onboardingAnswers']['travelTimeline'] ?? null;
 
@@ -335,6 +335,12 @@ class AuthController extends Controller
                 }
 
                 $user->update($updateData);
+
+                // Update UserProgress
+                $progress = \App\Models\UserProgress::firstOrNew(['user_id' => $user->id]);
+                $progress->afro_score = $quizData['totalScore'] ?? 0;
+                $progress->user_persona = $quizData['persona'] ?? 'Heritage Seeker';
+                $progress->save();
             }
 
             return response()->json([

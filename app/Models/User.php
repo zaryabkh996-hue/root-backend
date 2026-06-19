@@ -25,6 +25,11 @@ class User extends Authenticatable
         'password',
         'role',
         'subscription_tier',
+        'stripe_id',
+        'stripe_subscription_id',
+        'stripe_price_id',
+        'subscription_status',
+        'subscription_ends_at',
         'status',
         'onboarded',
         'whatsapp',
@@ -93,6 +98,7 @@ class User extends Authenticatable
             'services' => 'array',
             'testimonials' => 'array',
             'notification_preferences' => 'array',
+            'subscription_ends_at' => 'datetime',
         ];
     }
 

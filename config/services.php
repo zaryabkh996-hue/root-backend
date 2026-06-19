@@ -35,4 +35,26 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+    ],
+
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
+
+    'pinecone' => [
+        'api_key'     => env('PINECONE_API_KEY'),
+        'index'       => env('PINECONE_INDEX', 'ourroots-knowledge-bank'),
+        'environment' => env('PINECONE_ENVIRONMENT', 'us-east-1'),
+    ],
+
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'price_community' => env('STRIPE_PRICE_COMMUNITY'),
+        'price_preparation' => env('STRIPE_PRICE_PREPARATION'),
+    ],
+
 ];
