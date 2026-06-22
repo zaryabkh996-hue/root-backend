@@ -22,8 +22,56 @@ class StripeController extends Controller
     }
 
     /**
-     * Create a Stripe Checkout Session for a subscription
+     * Create a Stripe Checkout Session for a subscription (MOCK FLOW - ACTIVE)
      */
+    public function createCheckoutSession(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            $request->validate([
+                'tier' => 'required|string|in:community,preparation',
+            ]);
+
+            $tier = $request->input('tier');
+
+            // Frontend URLs
+            $frontendUrl = env('APP_FRONTEND_URL', 'http://localhost:3000');
+            $successUrl = rtrim($frontendUrl, '/') . '/subscription/success?session_id=mock_session_' . uniqid();
+
+            // MOCK MODE: Bypass Stripe checkout session creation
+            // Directly upgrade user tier
+            $user->update([
+                'subscription_tier' => $tier,
+                'subscription_status' => 'active',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'url' => $successUrl,
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('[StripeController] createCheckoutSession (Mock) error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create checkout session',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create a Stripe Checkout Session for a subscription (REAL STRIPE FLOW - INACTIVE)
+     * To activate this: uncomment this function, and comment out the mock version above.
+     */
+    /*
     public function createCheckoutSession(Request $request)
     {
         if (!$this->stripe) {
@@ -110,6 +158,7 @@ class StripeController extends Controller
             ], 500);
         }
     }
+    */
 
     /**
      * Create a Stripe Billing Portal Session for subscription management

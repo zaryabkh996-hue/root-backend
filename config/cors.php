@@ -16,17 +16,22 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
     'allowed_origins' => [
         'http://localhost:3000',
-       'https://ourroot.duckdns.org',
+        'https://ourroot.duckdns.org',
+        'https://ourroots.africa',
+      
+        'https://app.ourroots.africa',
+        'https://survey.ourroots.africa',
+        
         
     ],
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization', 'Accept', 'Origin'],
 
     'exposed_headers' => [],
 
