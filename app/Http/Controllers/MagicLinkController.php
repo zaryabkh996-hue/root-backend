@@ -281,10 +281,12 @@ class MagicLinkController extends Controller
 
             // Check if user already exists (sign-in) or create new user (registration)
             $user = User::where('email', $magicLink->email)->first();
+            $isNewUser = false;
 
             if (!$user) {
                 // Registration: Create new user
                 \Log::info('👤 [MAGIC_LINK] Creating new user account');
+                $isNewUser = true;
 
                 $user = User::create([
                     'name' => $magicLink->name,
@@ -356,6 +358,7 @@ class MagicLinkController extends Controller
                     'learning_preference' => $user->learning_preference,
                     'travel_date' => $user->travel_date,
                     'quiz_data' => $user->quiz_data,
+                    'is_new_user' => $isNewUser,
                 ],
                 'token' => $token
             ]);

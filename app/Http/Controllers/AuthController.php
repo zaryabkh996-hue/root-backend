@@ -276,6 +276,7 @@ class AuthController extends Controller
                         'learning_preference' => $user->learning_preference,
                         'travel_date' => $user->travel_date,
                         'quiz_data' => $user->quiz_data,
+                        'is_new_user' => (bool)$user->wasRecentlyCreated,
                     ],
                 ],
             ], $user->wasRecentlyCreated ? 201 : 200);
