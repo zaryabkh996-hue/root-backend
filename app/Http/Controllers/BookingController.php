@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Mail\BookingEmail;
-use App\Helpers\MailjetHelper;
+use App\Helpers\ResendHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -72,7 +72,7 @@ class BookingController extends Controller
                 );
                 $customerHtmlContent = $customerEmail->render();
 
-                MailjetHelper::sendEmail(
+                ResendHelper::sendEmail(
                     $booking->user->email,
                     'New Booking Confirmation - OurRoots.Africa',
                     $customerHtmlContent,
@@ -95,7 +95,7 @@ class BookingController extends Controller
                 );
                 $custodianHtmlContent = $custodianEmail->render();
 
-                MailjetHelper::sendEmail(
+                ResendHelper::sendEmail(
                     $booking->custodian->email,
                     'New Booking Request - OurRoots.Africa',
                     $custodianHtmlContent,
@@ -198,7 +198,7 @@ class BookingController extends Controller
                 );
                 $customerHtmlContent = $customerEmail->render();
 
-                MailjetHelper::sendEmail(
+                ResendHelper::sendEmail(
                     $booking->user->email,
                     'Booking Cancelled - OurRoots.Africa',
                     $customerHtmlContent,
@@ -221,7 +221,7 @@ class BookingController extends Controller
                 );
                 $custodianHtmlContent = $custodianEmail->render();
 
-                MailjetHelper::sendEmail(
+                ResendHelper::sendEmail(
                     $booking->custodian->email,
                     'Booking Cancelled - OurRoots.Africa',
                     $custodianHtmlContent,
@@ -296,7 +296,7 @@ class BookingController extends Controller
                 );
                 $customerHtmlContent = $customerEmail->render();
 
-                MailjetHelper::sendEmail(
+                ResendHelper::sendEmail(
                     $booking->user->email,
                     'Booking Updated - OurRoots.Africa',
                     $customerHtmlContent,
@@ -319,7 +319,7 @@ class BookingController extends Controller
                 );
                 $custodianHtmlContent = $custodianEmail->render();
 
-                MailjetHelper::sendEmail(
+                ResendHelper::sendEmail(
                     $booking->custodian->email,
                     'Booking Updated - OurRoots.Africa',
                     $custodianHtmlContent,

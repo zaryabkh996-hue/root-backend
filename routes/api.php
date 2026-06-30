@@ -66,10 +66,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Progress routes
     Route::get('/progress', [ProgressController::class, 'show']);
-    Route::put('/progress', [ProgressController::class, 'sync']);
-    Route::post('/progress/complete-module', [ProgressController::class, 'completeModule']);
-    Route::put('/progress/journal/{moduleId}', [ProgressController::class, 'saveJournal']);
-    Route::put('/progress/feedback/{moduleId}', [ProgressController::class, 'saveFeedback']);
+    Route::middleware('tier')->group(function () {
+        Route::put('/progress', [ProgressController::class, 'sync']);
+        Route::post('/progress/complete-module', [ProgressController::class, 'completeModule']);
+        Route::put('/progress/journal/{moduleId}', [ProgressController::class, 'saveJournal']);
+        Route::put('/progress/feedback/{moduleId}', [ProgressController::class, 'saveFeedback']);
+    });
 
     // Profile routes
     Route::get('/user/profile', [ProfileController::class, 'show']);
@@ -99,21 +101,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Community routes
     Route::get('/community/hubs', [CommunityHubController::class, 'index']);
-    Route::get('/community/hubs/{id}', [CommunityHubController::class, 'show']);
-    Route::post('/community/hubs/{id}/join', [CommunityHubController::class, 'join']);
-    Route::post('/community/hubs/{id}/leave', [CommunityHubController::class, 'leave']);
-    
-    Route::get('/community/hubs/{hubId}/threads', [CommunityThreadController::class, 'indexByHub']);
-    Route::post('/community/threads', [CommunityThreadController::class, 'store']);
-    Route::get('/community/threads/{id}', [CommunityThreadController::class, 'show']);
-    Route::put('/community/threads/{id}', [CommunityThreadController::class, 'update']);
-    Route::delete('/community/threads/{id}', [CommunityThreadController::class, 'destroy']);
-    
-    Route::get('/community/threads/{threadId}/replies', [CommunityReplyController::class, 'indexByThread']);
-    Route::post('/community/replies', [CommunityReplyController::class, 'store']);
-    Route::put('/community/replies/{id}', [CommunityReplyController::class, 'update']);
-    Route::delete('/community/replies/{id}', [CommunityReplyController::class, 'destroy']);
-    Route::post('/community/reports', [CommunityReportController::class, 'store']);
+    Route::middleware('tier')->group(function () {
+        Route::get('/community/hubs/{id}', [CommunityHubController::class, 'show']);
+        Route::post('/community/hubs/{id}/join', [CommunityHubController::class, 'join']);
+        Route::post('/community/hubs/{id}/leave', [CommunityHubController::class, 'leave']);
+        
+        Route::get('/community/hubs/{hubId}/threads', [CommunityThreadController::class, 'indexByHub']);
+        Route::post('/community/threads', [CommunityThreadController::class, 'store']);
+        Route::get('/community/threads/{id}', [CommunityThreadController::class, 'show']);
+        Route::put('/community/threads/{id}', [CommunityThreadController::class, 'update']);
+        Route::delete('/community/threads/{id}', [CommunityThreadController::class, 'destroy']);
+        
+        Route::get('/community/threads/{threadId}/replies', [CommunityReplyController::class, 'indexByThread']);
+        Route::post('/community/replies', [CommunityReplyController::class, 'store']);
+        Route::put('/community/replies/{id}', [CommunityReplyController::class, 'update']);
+        Route::delete('/community/replies/{id}', [CommunityReplyController::class, 'destroy']);
+        Route::post('/community/reports', [CommunityReportController::class, 'store']);
+    });
 
     // Lounge routes
     Route::get('/lounge/posts', [LoungeController::class, 'index']);

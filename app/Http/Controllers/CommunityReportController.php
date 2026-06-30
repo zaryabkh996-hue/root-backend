@@ -6,7 +6,7 @@ use App\Models\CommunityReport;
 use App\Models\CommunityThread;
 use App\Models\CommunityReply;
 use App\Models\User;
-use App\Helpers\MailjetHelper;
+use App\Helpers\ResendHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -184,7 +184,7 @@ class CommunityReportController extends Controller
                 </div>
             ";
 
-            MailjetHelper::sendEmail($reportedUser->email, $subject, $htmlContent);
+            ResendHelper::sendEmail($reportedUser->email, $subject, $htmlContent);
             Log::info("Formal warning email sent successfully to User ID: {$reportedUser->id}");
         } catch (\Exception $e) {
             Log::error("Failed to send warning email to User ID: {$reportedUser->id}. Error: " . $e->getMessage());

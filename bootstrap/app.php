@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // EnsureFrontendRequestsAreStateful is NOT used - we use pure token-based auth
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdminRole::class,
+            'tier' => \App\Http\Middleware\CheckSubscriptionTier::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

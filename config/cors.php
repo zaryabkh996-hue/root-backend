@@ -22,11 +22,8 @@ return [
         'http://localhost:3000',
         'https://ourroot.duckdns.org',
         'https://ourroots.africa',
-      
         'https://app.ourroots.africa',
         'https://survey.ourroots.africa',
-        
-        
     ],
 
     'allowed_origins_patterns' => [],
