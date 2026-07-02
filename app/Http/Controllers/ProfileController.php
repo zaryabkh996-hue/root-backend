@@ -35,7 +35,9 @@ class ProfileController extends Controller
             // Helper function to construct complete URL from relative path
             $getCompleteUrl = function($path) use ($storageUrl) {
                 if (!$path) return null;
-                // Always construct from relative path (don't check for http - we store relative paths only)
+                if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                    return $path;
+                }
                 return $storageUrl . '/' . ltrim($path, '/');
             };
 
@@ -297,6 +299,19 @@ class ProfileController extends Controller
                 ], 401);
             }
 
+            // Check if client passed a pre-uploaded Cloudinary URL
+            if ($request->has('picture_url')) {
+                $pictureUrl = $request->input('picture_url');
+                $user->update(['picture' => $pictureUrl]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Picture updated successfully',
+                    'data' => [
+                        'picture' => $pictureUrl,
+                    ],
+                ], 200);
+            }
+
             // Validate file
             $validator = Validator::make($request->all(), [
                 'picture' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // max 5MB
@@ -398,7 +413,9 @@ class ProfileController extends Controller
                 ->get()
                 ->map(function ($photo) use ($storageUrl) {
                     // Construct complete URL from relative path stored in DB
-                    $completeUrl = $storageUrl . '/' . ltrim($photo->url, '/');
+                    $completeUrl = (str_starts_with($photo->url, 'http://') || str_starts_with($photo->url, 'https://'))
+                        ? $photo->url
+                        : $storageUrl . '/' . ltrim($photo->url, '/');
                     
                     return [
                         'id' => $photo->id,
@@ -441,6 +458,29 @@ class ProfileController extends Controller
                     'success' => false,
                     'message' => 'Unauthenticated'
                 ], 401);
+            }
+
+            // Check if client passed a pre-uploaded Cloudinary URL
+            if ($request->has('photo_url')) {
+                $journeyPhoto = JourneyPhoto::create([
+                    'user_id' => $user->id,
+                    'url' => $request->input('photo_url'),
+                    'caption' => $request->input('caption', ''),
+                    'hub' => $request->input('hub', 'Love Hub'),
+                    'visibility' => $request->input('visibility', $user->journey_photos_default ?? 'community'),
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Photo added successfully',
+                    'data' => [
+                        'id' => $journeyPhoto->id,
+                        'url' => $journeyPhoto->url,
+                        'caption' => $journeyPhoto->caption,
+                        'hub' => $journeyPhoto->hub,
+                        'visibility' => $journeyPhoto->visibility,
+                        'createdAt' => $journeyPhoto->created_at->format('Y-m-d H:i:s'),
+                    ],
+                ], 200);
             }
 
             // Validate file
