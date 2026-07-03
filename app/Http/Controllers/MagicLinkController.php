@@ -88,7 +88,10 @@ class MagicLinkController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            
+            Log::error('Failed to send magic link (registration): ' . $e->getMessage(), [
+                'email' => $validated['email'] ?? null,
+                'exception' => $e
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send magic link. Please try again.'
@@ -161,7 +164,10 @@ class MagicLinkController extends Controller
             ]);
 
         } catch (\Exception $e) {
-
+            Log::error('Failed to send magic link (sign-in): ' . $e->getMessage(), [
+                'email' => $validated['email'] ?? null,
+                'exception' => $e
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send magic link. Please try again.'
@@ -260,6 +266,10 @@ class MagicLinkController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Failed to verify magic link: ' . $e->getMessage(), [
+                'token' => $validated['token'] ?? null,
+                'exception' => $e
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to verify magic link. Please try again.'
