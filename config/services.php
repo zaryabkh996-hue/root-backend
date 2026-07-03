@@ -20,6 +20,7 @@ return [
 
     'resend' => [
         'key' => env('RESEND_API_KEY'),
+        'from_email' => env('RESEND_FROM_EMAIL', 'noreply@ourroots.africa'),
     ],
 
     'ses' => [

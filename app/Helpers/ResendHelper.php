@@ -8,11 +8,11 @@ class ResendHelper
     public static function sendEmail($email, $subject, $htmlContent, $fromName = null)
     {
         try {
-            $apiKey = env('RESEND_API_KEY');
-            $fromEmail = env('RESEND_FROM_EMAIL', 'noreply@ourroots.africa');
+            $apiKey = config('services.resend.key');
+            $fromEmail = config('services.resend.from_email', 'noreply@ourroots.africa');
             
             if (!$apiKey) {
-                throw new \Exception('Resend API key not configured in .env');
+                throw new \Exception('Resend API key not configured in config/services.php');
             }
 
             $ch = curl_init();
