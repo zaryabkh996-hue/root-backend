@@ -20,6 +20,8 @@ class CommunityThread extends Model
         'user_tier',
         'is_active',
         'is_pinned',
+        'status',
+        'revision_note',
     ];
 
     protected $casts = [

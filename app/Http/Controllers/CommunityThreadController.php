@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 
 class CommunityThreadController extends Controller
 {
-    // Get all threads in a hub
+    // Get all threads in a hub (approved only)
     public function indexByHub($hubId): JsonResponse
     {
         $hub = CommunityHub::find($hubId);
@@ -19,6 +19,7 @@ class CommunityThreadController extends Controller
 
         $paginator = CommunityThread::where('hub_id', $hubId)
             ->where('is_active', true)
+            ->where('status', 'approved')
             ->withCount('replies')
             ->with(['author', 'latestReply'])
             ->orderBy('is_pinned', 'desc')
@@ -117,9 +118,15 @@ class CommunityThreadController extends Controller
             return response()->json(['error' => 'You must be a member of this hub to post'], 403);
         }
 
+        $userId = auth()->id();
+        if (auth()->user()->role === 'admin' && $request->has('user_id')) {
+            $userId = $request->input('user_id');
+        }
+
         $thread = CommunityThread::create([
             ...$validated,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
+            'status' => auth()->user()->role === 'admin' ? 'approved' : 'pending',
         ]);
 
         return response()->json([
@@ -181,6 +188,87 @@ class CommunityThreadController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Thread deleted successfully',
+        ]);
+    }
+
+    // Get all pending threads (admin only)
+    public function getPendingThreads(): JsonResponse
+    {
+        if (!auth()->check() || auth()->user()->role !== 'admin') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $threads = CommunityThread::where('status', 'pending')
+            ->with(['author', 'hub'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($thread) {
+                return [
+                    'id' => $thread->id,
+                    'title' => $thread->title,
+                    'content' => $thread->content,
+                    'author' => $thread->author->name,
+                    'hub_name' => $thread->hub->name,
+                    'created_at' => $thread->created_at->toIso8601String(),
+                    'time_ago' => $thread->created_at->diffForHumans(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $threads,
+        ]);
+    }
+
+    // Approve pending thread (admin only)
+    public function approveThread($id): JsonResponse
+    {
+        if (!auth()->check() || auth()->user()->role !== 'admin') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $thread = CommunityThread::find($id);
+        if (!$thread) {
+            return response()->json(['error' => 'Thread not found'], 404);
+        }
+
+        $thread->update([
+            'status' => 'approved',
+            'revision_note' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thread approved successfully',
+            'data' => $thread,
+        ]);
+    }
+
+    // Request thread revision (admin only)
+    public function requestThreadRevision(Request $request, $id): JsonResponse
+    {
+        if (!auth()->check() || auth()->user()->role !== 'admin') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $thread = CommunityThread::find($id);
+        if (!$thread) {
+            return response()->json(['error' => 'Thread not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'revision_note' => 'required|string',
+        ]);
+
+        $thread->update([
+            'status' => 'revision',
+            'revision_note' => $validated['revision_note'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Revision requested successfully',
+            'data' => $thread,
         ]);
     }
 }

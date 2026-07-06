@@ -47,6 +47,9 @@ Route::get('/custodians', [CustodianController::class, 'getAll']);
 Route::get('/custodians/{id}', [CustodianController::class, 'getOne']);
 Route::post('/custodians/apply', [CustodianController::class, 'apply']);
 
+// Public stories routes
+Route::get('/stories/approved', [ProfileController::class, 'getApprovedStories']);
+
 // ──────────────────────────────────────────────────────────────────────────
 // PROTECTED ROUTES - Requires Sanctum token
 // ──────────────────────────────────────────────────────────────────────────
@@ -78,6 +81,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile', [ProfileController::class, 'update']);
     Route::put('/user/notifications', [ProfileController::class, 'updateNotifications']);
     Route::post('/user/profile/picture', [ProfileController::class, 'uploadPicture']);
+    Route::post('/user/profile/grant-returned-traveller', [ProfileController::class, 'grantReturnedTraveller']);
+
+    // Stories DB-backed routes
+    Route::get('/user/stories', [ProfileController::class, 'listStories']);
+    Route::get('/user/stories/{id}', [ProfileController::class, 'showStory']);
+    Route::post('/user/stories', [ProfileController::class, 'storeStory']);
+    Route::put('/user/stories/{id}', [ProfileController::class, 'updateStory']);
 
     // Custodian profile routes
     Route::get('/custodian/profile', [CustodianController::class, 'getProfile']);
@@ -155,6 +165,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // Community admin routes
         Route::post('/community/hubs', [CommunityHubController::class, 'store']);
         Route::put('/community/hubs/{id}', [CommunityHubController::class, 'update']);
+        Route::get('/community/threads/pending', [CommunityThreadController::class, 'getPendingThreads']);
+        Route::post('/community/threads/{id}/approve', [CommunityThreadController::class, 'approveThread']);
+        Route::post('/community/threads/{id}/revision', [CommunityThreadController::class, 'requestThreadRevision']);
+
+        // Stories admin review routes
+        Route::get('/stories/pending', [ProfileController::class, 'getPendingStories']);
+        Route::post('/stories/{id}/approve', [ProfileController::class, 'approveStory']);
+        Route::post('/stories/{id}/revision', [ProfileController::class, 'rejectStory']);
 
         // Conduct & reports routes
         Route::get('/community/reports', [CommunityReportController::class, 'index']);

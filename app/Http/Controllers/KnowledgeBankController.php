@@ -39,6 +39,14 @@ class KnowledgeBankController extends Controller
      */
     public function submit(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user || $user->role !== 'custodian') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. Custodian role required.'
+            ], 403);
+        }
+
         $validated = $request->validate([
             'title'             => 'required|string|max:255',
             'description'       => 'required|string|min:50',
@@ -50,8 +58,6 @@ class KnowledgeBankController extends Controller
             'consent_signed'    => 'required|boolean|accepted',
             'consent_signature' => 'required|string|max:255',
         ]);
-
-        $user = $request->user();
 
         // Handle file upload if present
         $mediaPath = null;

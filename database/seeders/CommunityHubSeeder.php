@@ -78,6 +78,16 @@ class CommunityHubSeeder extends Seeder
                 'access_label' => 'Preparation Tier',
                 'border_color' => '#D4AF37',
             ],
+            [
+                'name' => 'Stories / Journeys',
+                'slug' => 'stories-journeys',
+                'adinkra' => 'Sankofa',
+                'emoji' => '📖',
+                'description' => 'A sanctuary for Returned Travellers to share their lived experiences, homecomings, and personal reflections on returning to Africa.',
+                'access_level' => 'free',
+                'access_label' => 'Free Access',
+                'border_color' => '#C9A14A',
+            ],
         ];
 
         foreach ($hubs as $hub) {

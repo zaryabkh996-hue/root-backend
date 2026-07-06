@@ -69,6 +69,7 @@ class User extends Authenticatable
         'journey_photos_default',
         'show_score_publicly',
         'notification_preferences',
+        'is_returned_traveller',
     ];
 
     /**
@@ -99,6 +100,7 @@ class User extends Authenticatable
             'testimonials' => 'array',
             'notification_preferences' => 'array',
             'subscription_ends_at' => 'datetime',
+            'is_returned_traveller' => 'boolean',
         ];
     }
 

@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\UserProgress;
 use App\Models\JourneyPhoto;
+use App\Models\Story;
+use App\Models\CommunityThread;
+use App\Models\CommunityHub;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -113,7 +116,6 @@ class ProfileController extends Controller
                 'name' => 'sometimes|string|max:255',
                 'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
                 'whatsapp' => 'sometimes|string|max:20|nullable',
-                'subscriptionTier' => 'sometimes|string|in:free,community,preparation',
                 'bio' => 'sometimes|string|max:280|nullable',
                 'bioPrivacy' => 'sometimes|in:public,community,private',
                 'travelDate' => 'sometimes|string|nullable',
@@ -170,9 +172,6 @@ class ProfileController extends Controller
             if ($request->has('journeyPhotosDefault')) {
                 $dataToUpdate['journey_photos_default'] = $request->input('journeyPhotosDefault');
             }
-            if ($request->has('subscriptionTier')) {
-                $dataToUpdate['subscription_tier'] = $request->input('subscriptionTier');
-            }
             if ($request->has('showScorePublicly')) {
                 $dataToUpdate['show_score_publicly'] = $request->input('showScorePublicly');
             }
@@ -210,6 +209,36 @@ class ProfileController extends Controller
                 'success' => false,
                 'message' => 'Failed to update profile',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Grant Returned Traveller role to the authenticated user
+     */
+    public function grantReturnedTraveller(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            $user->is_returned_traveller = true;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Returned Traveller role granted successfully',
+                'data' => $user
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to grant role: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -542,6 +571,283 @@ class ProfileController extends Controller
                 'message' => 'Failed to upload photo',
                 'error' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * List customer's own stories
+     */
+    public function listStories(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $stories = Story::where('author_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $stories
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get all approved stories (public/library)
+     */
+    public function getApprovedStories(Request $request)
+    {
+        try {
+            $stories = Story::where('status', 'approved')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $stories
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Show single story details
+     */
+    public function showStory(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $story = Story::findOrFail($id);
+
+            // Allow only author or admin to view non-approved story details
+            if ($story->status !== 'approved' && $story->author_id !== $user->id && $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $story
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Create a new story draft & grant Returned Traveller role
+     */
+    public function storeStory(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'title' => 'required|string|max:255',
+                'body' => 'required|string',
+                'sanity_id' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            // Create story locally
+            $story = Story::create([
+                'sanity_id' => $request->input('sanity_id'),
+                'title' => $request->input('title'),
+                'body' => $request->input('body'),
+                'author' => $user->name,
+                'author_id' => $user->id,
+                'status' => 'pending',
+            ]);
+
+            // Automatically grant Returned Traveller role
+            if (!$user->is_returned_traveller) {
+                $user->is_returned_traveller = true;
+                $user->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Story draft created and Returned Traveller status granted.',
+                'data' => $story
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update/resubmit a story draft
+     */
+    public function updateStory(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $story = Story::findOrFail($id);
+
+            // Author ownership check
+            if ($story->author_id !== $user->id && $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'title' => 'required|string|max:255',
+                'body' => 'required|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            $story->update([
+                'title' => $request->input('title'),
+                'body' => $request->input('body'),
+                'status' => 'pending', // reset to pending
+                'revision_note' => null, // clear revision note
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Story updated and resubmitted successfully',
+                'data' => $story
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Admin: Get all pending stories
+     */
+    public function getPendingStories(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user || $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $stories = Story::where('status', 'pending')
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $stories
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Admin: Approve story, set hub routing, create community thread
+     */
+    public function approveStory(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user || $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $story = Story::findOrFail($id);
+
+            $validator = Validator::make($request->all(), [
+                'hub_id' => 'required|integer|exists:community_hubs,id',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            $hubId = $request->input('hub_id');
+
+            // Update story database state
+            $story->update([
+                'status' => 'approved',
+                'community_hub_id' => $hubId,
+                'revision_note' => null,
+            ]);
+
+            // Fetch author details to enrich the thread info
+            $author = User::find($story->author_id);
+            $authorProgress = UserProgress::where('user_id', $story->author_id)->first();
+
+            // Create community thread on behalf of the story author
+            $thread = CommunityThread::create([
+                'hub_id' => $hubId,
+                'user_id' => $story->author_id,
+                'title' => $story->title,
+                'content' => $story->body,
+                'status' => 'approved', // instantly approved thread
+                'location' => $author ? ($author->location ?? $author->country) : null,
+                'user_stage' => $authorProgress && $authorProgress->current_module_id ? 'Stage ' . explode('.', $authorProgress->current_module_id)[0] : 'Stage 1',
+                'user_tier' => $author ? ucfirst($author->subscription_tier) : null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Story approved and routed to community hub thread.',
+                'data' => $story
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Admin: Request story revision with comment
+     */
+    public function rejectStory(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user || $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $story = Story::findOrFail($id);
+
+            $validator = Validator::make($request->all(), [
+                'revision_note' => 'required|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            $story->update([
+                'status' => 'revision',
+                'revision_note' => $request->input('revision_note'),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Story revision request submitted successfully.',
+                'data' => $story
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }

@@ -123,6 +123,7 @@ class AuthController extends Controller
                     'learning_preference' => $user->learning_preference,
                     'travel_date' => $user->travel_date,
                     'quiz_data' => $user->quiz_data,
+                    'is_returned_traveller' => (bool)$user->is_returned_traveller,
                 ],
             ],
         ], 200);
@@ -152,6 +153,7 @@ class AuthController extends Controller
                 'learning_preference' => $user->learning_preference,
                 'travel_date' => $user->travel_date,
                 'quiz_data' => $user->quiz_data,
+                'is_returned_traveller' => (bool)$user->is_returned_traveller,
             ],
         ], 200);
     }
