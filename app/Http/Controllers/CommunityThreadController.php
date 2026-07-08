@@ -158,6 +158,12 @@ class CommunityThreadController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        // Revert status to pending and clear revision note if user edited a thread in revision status
+        if ($thread->status === 'revision' && auth()->user()->role !== 'admin') {
+            $thread->status = 'pending';
+            $thread->revision_note = null;
+        }
+
         $thread->update($validated);
 
         return response()->json([
@@ -269,6 +275,37 @@ class CommunityThreadController extends Controller
             'success' => true,
             'message' => 'Revision requested successfully',
             'data' => $thread,
+        ]);
+    }
+
+    // Get current user's threads (approved, pending, or revision)
+    public function myThreads(Request $request): JsonResponse
+    {
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $threads = CommunityThread::where('user_id', auth()->id())
+            ->with(['author', 'hub'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($thread) {
+                return [
+                    'id' => $thread->id,
+                    'hub_id' => $thread->hub_id,
+                    'hub_name' => $thread->hub->name,
+                    'title' => $thread->title,
+                    'content' => $thread->content,
+                    'status' => $thread->status,
+                    'revision_note' => $thread->revision_note,
+                    'created_at' => $thread->created_at->toIso8601String(),
+                    'time_ago' => $thread->created_at->diffForHumans(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $threads,
         ]);
     }
 }

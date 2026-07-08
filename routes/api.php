@@ -121,6 +121,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/community/threads/{id}', [CommunityThreadController::class, 'show']);
         Route::put('/community/threads/{id}', [CommunityThreadController::class, 'update']);
         Route::delete('/community/threads/{id}', [CommunityThreadController::class, 'destroy']);
+        Route::get('/community/user/threads', [CommunityThreadController::class, 'myThreads']);
         
         Route::get('/community/threads/{threadId}/replies', [CommunityReplyController::class, 'indexByThread']);
         Route::post('/community/replies', [CommunityReplyController::class, 'store']);
