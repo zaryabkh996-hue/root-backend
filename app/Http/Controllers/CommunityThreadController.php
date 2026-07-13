@@ -62,6 +62,15 @@ class CommunityThreadController extends Controller
             return response()->json(['error' => 'Thread not found'], 404);
         }
 
+        if ($thread->status !== 'approved') {
+            $user = auth()->user();
+            if (!$user || ($user->id !== $thread->user_id && $user->role !== 'admin')) {
+                return response()->json([
+                    'error' => 'Access denied. This thread is pending moderation.'
+                ], 403);
+            }
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -158,8 +167,8 @@ class CommunityThreadController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        // Revert status to pending and clear revision note if user edited a thread in revision status
-        if ($thread->status === 'revision' && auth()->user()->role !== 'admin') {
+        // Revert status to pending and clear revision note on update (re-review edited content)
+        if (auth()->user()->role !== 'admin') {
             $thread->status = 'pending';
             $thread->revision_note = null;
         }

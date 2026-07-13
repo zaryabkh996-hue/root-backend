@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class CustodianController extends Controller
 {
@@ -95,7 +96,6 @@ class CustodianController extends Controller
                 'specialty' => 'required|string|max:255',
                 'availability' => 'required|in:Available,Booked',
                 'description' => 'required|string',
-                'certification' => 'nullable|string',
                 'coc_status' => 'nullable|string',
                 'short_bio' => 'required|string',
                 'about' => 'required|string',
@@ -126,7 +126,6 @@ class CustodianController extends Controller
                     'specialty' => $request->specialty,
                     'availability' => $request->availability,
                     'description' => $request->description,
-                    'certification' => $request->certification,
                     'coc_status' => $request->coc_status,
                     'short_bio' => $request->short_bio,
                     'about' => $request->about,
@@ -139,7 +138,7 @@ class CustodianController extends Controller
             } else {
                 $password = Str::random(16);
                 // Create new user with temporary password
-                $user = User::create([
+                $user = User::forceCreate([
                     'name' => $request->name,
                     'email' => $request->email,
                     'password' => Hash::make($password), // Temporary password
@@ -151,7 +150,6 @@ class CustodianController extends Controller
                     'specialty' => $request->specialty,
                     'availability' => $request->availability,
                     'description' => $request->description,
-                    'certification' => $request->certification,
                     'coc_status' => $request->coc_status,
                     'short_bio' => $request->short_bio,
                     'about' => $request->about,
@@ -270,7 +268,7 @@ class CustodianController extends Controller
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 $password = Str::random(16);
-            $custodian = User::create([
+            $custodian = User::forceCreate([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => $password,
@@ -364,7 +362,7 @@ $password = Str::random(16);
                 }
             }
 
-            $custodian->update($updateData);
+            $custodian->forceFill($updateData)->save();
 
             return response()->json([
                 'success' => true,
@@ -457,7 +455,6 @@ $password = Str::random(16);
                 'description' => 'string',
                 'price_from' => 'numeric|min:0',
                 'status' => 'in:active,inactive,suspended,pending',
-                'certification' => 'nullable|string',
                 'coc_status' => 'nullable|string',
                 'review_avg' => 'nullable|numeric',
                 'sessions_count' => 'nullable|integer',
@@ -478,7 +475,7 @@ $password = Str::random(16);
             $updateData = [];
             $fillableFields = [
                 'name', 'email', 'location', 'country', 'years_experience', 'specialty',
-                'availability', 'description', 'status', 'certification', 'coc_status',
+                'availability', 'description', 'status', 'coc_status',
                 'review_avg', 'sessions_count', 'short_bio', 'about', 'languages',
                 'services', 'testimonials', 'price_from', 'tags', 'whatsapp', 'instagram', 'linkedin'
             ];

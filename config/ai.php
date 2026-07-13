@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'provider' => env('AMEN_AI_PROVIDER', 'openai'),
+    'provider' => in_array(env('AMEN_AI_PROVIDER'), ['openai', 'anthropic']) ? env('AMEN_AI_PROVIDER') : 'openai',
 
     /*
     |--------------------------------------------------------------------------

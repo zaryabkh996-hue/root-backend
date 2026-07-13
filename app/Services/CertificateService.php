@@ -517,6 +517,7 @@ HTML;
     public function generatePdf(User $user, UserProgress $progress)
     {
         try {
+            $this->recalculateProgress($progress, $user->role);
             if ($user->role === 'custodian') {
                 $html = $this->generateCustodianCertificateHtml($user, $progress);
             } else {
@@ -544,6 +545,7 @@ HTML;
 
     public function getCertificateInfo(User $user, UserProgress $progress): array
     {
+        $this->recalculateProgress($progress, $user->role);
         $completedStages = $progress->completed_stages ?? [];
         $stageCount      = count($completedStages);
 
@@ -560,5 +562,65 @@ HTML;
 
             'completionDate' => now()->format('d F Y'),
         ];
+    }
+
+    /**
+     * Recalculate stage completion server-side for security and forgery prevention
+     */
+    private function recalculateProgress(UserProgress $progress, string $role): void
+    {
+        $completedModules = $progress->completed_modules ?? [];
+
+        if ($role === 'custodian') {
+            $completedStages = [];
+            $unlockedStages = [1];
+            for ($s = 1; $s <= 6; $s++) {
+                if (in_array(strval($s), $completedModules)) {
+                    $completedStages[] = $s;
+                    if ($s + 1 <= 6) {
+                        $unlockedStages[] = $s + 1;
+                    }
+                }
+            }
+            $progress->completed_stages = array_values(array_unique($completedStages));
+            $progress->unlocked_stages = array_values(array_unique($unlockedStages));
+            $progress->afro_score = (int) min(100, round((count($completedModules) / 6) * 100));
+        } else {
+            $stageModules = [
+                1 => ['1.1', '1.2', '1.3', '1.4', '1.5'],
+                2 => ['2.1', '2.2', '2.3', '2.4', '2.5', '2.6', '2.7', '2.8'],
+                3 => ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6'],
+                4 => ['4.1', '4.2', '4.3', '4.4', '4.5', '4.6'],
+                5 => ['5.1', '5.2', '5.3', '5.4', '5.5', '5.6', '5.7'],
+                6 => ['6.1', '6.2', '6.3', '6.4', '6.5'],
+            ];
+
+            $completedStages = [];
+            $unlockedStages = [1];
+
+            foreach ($stageModules as $stageId => $modules) {
+                $allCompleted = true;
+                foreach ($modules as $mod) {
+                    if (!in_array($mod, $completedModules)) {
+                        $allCompleted = false;
+                        break;
+                    }
+                }
+                if ($allCompleted) {
+                    $completedStages[] = $stageId;
+                }
+            }
+
+            sort($completedStages);
+            foreach ($completedStages as $cs) {
+                if ($cs + 1 <= 6 && !in_array($cs + 1, $unlockedStages)) {
+                    $unlockedStages[] = $cs + 1;
+                }
+            }
+
+            $progress->completed_stages = array_values(array_unique($completedStages));
+            $progress->unlocked_stages = array_values(array_unique($unlockedStages));
+            $progress->afro_score = (int) min(100, round((count($completedModules) / 37) * 100));
+        }
     }
 }

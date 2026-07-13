@@ -290,11 +290,23 @@ class CustodianSeeder extends Seeder
             ]
         ];
 
+        $seedPassword = env('CUSTODIAN_SEED_PASSWORD');
+        if (!$seedPassword || strlen($seedPassword) < 12 || $seedPassword === 'password123') {
+            // Generate a secure random password if not configured securely or if it is the insecure default
+            $seedPassword = \Illuminate\Support\Str::random(16);
+            $this->command->info("Generated secure Custodian password: {$seedPassword}");
+        }
+
         foreach ($custodians as $custodianData) {
-            User::updateOrCreate(
-                ['email' => $custodianData['email']],
-                $custodianData
-            );
+            $user = User::where('email', $custodianData['email'])->first();
+            if (!$user) {
+                $custodianData['password'] = Hash::make($seedPassword);
+                User::forceCreate($custodianData);
+            } else {
+                // Update profile details, but protect existing password from being reset
+                unset($custodianData['password']);
+                $user->forceFill($custodianData)->save();
+            }
         }
 
         $this->command->info('Successfully seeded 5 custodians!');

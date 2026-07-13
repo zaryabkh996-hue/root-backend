@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Mail\BookingEmail;
 use App\Helpers\ResendHelper;
+use App\Http\Resources\CustodianBookingResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -152,13 +153,13 @@ class BookingController extends Controller
         try {
           
             $bookings = Booking::where('custodian_id', $request->user()->id)
-                ->with(['user', 'user.progress'])
+                ->with('user')
                 ->orderBy('booking_date', 'asc')
                 ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $bookings,
+                'data' => CustodianBookingResource::collection($bookings),
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to fetch bookings'], 500);
@@ -282,6 +283,15 @@ class BookingController extends Controller
 
             $booking->update($updateData);
 
+            if (isset($updateData['status']) && $updateData['status'] === 'completed') {
+                $client = $booking->user;
+                if ($client && !$client->is_returned_traveller) {
+                    $client->is_returned_traveller = true;
+                    $client->save();
+                    Log::info("Granted Returned Traveller status to User ID {$client->id} due to booking completion.");
+                }
+            }
+
 
 
             // Send email to customer
@@ -332,7 +342,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $booking,
+                'data' => new CustodianBookingResource($booking),
                 'message' => 'Booking updated successfully',
             ]);
         } catch (\Exception $e) {

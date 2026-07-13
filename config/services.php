@@ -58,4 +58,9 @@ return [
         'price_preparation' => env('STRIPE_PRICE_PREPARATION'),
     ],
 
+    'auth0' => [
+        'domain' => env('AUTH0_DOMAIN', 'dev-tc1g3yu0qc1tsnit.us.auth0.com'),
+        'client_id' => env('AUTH0_CLIENT_ID', 'ZMPQwDRJ1rwp60KsPu4IthKdcT8pxXK1'),
+    ],
+
 ];

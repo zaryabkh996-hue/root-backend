@@ -66,6 +66,32 @@ class AmenAIController extends Controller
     }
 
     /**
+     * Trigger an SOS crisis alert manually.
+     */
+    public function sos(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'conversation_id' => 'required|string|max:100',
+        ]);
+
+        $user = $request->user();
+        $conversationId = $validated['conversation_id'];
+
+        try {
+            $result = $this->amenAIService->triggerSOS($conversationId, $user);
+            return response()->json([
+                'success' => true,
+                'data'    => $result,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process SOS alert.',
+            ], 500);
+        }
+    }
+
+    /**
      * Get the user's conversation sessions.
      */
     public function history(Request $request): JsonResponse

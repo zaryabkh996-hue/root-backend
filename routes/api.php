@@ -81,13 +81,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile', [ProfileController::class, 'update']);
     Route::put('/user/notifications', [ProfileController::class, 'updateNotifications']);
     Route::post('/user/profile/picture', [ProfileController::class, 'uploadPicture']);
-    Route::post('/user/profile/grant-returned-traveller', [ProfileController::class, 'grantReturnedTraveller']);
-
     // Stories DB-backed routes
-    Route::get('/user/stories', [ProfileController::class, 'listStories']);
-    Route::get('/user/stories/{id}', [ProfileController::class, 'showStory']);
-    Route::post('/user/stories', [ProfileController::class, 'storeStory']);
-    Route::put('/user/stories/{id}', [ProfileController::class, 'updateStory']);
+    Route::middleware('returned_traveller')->group(function () {
+        Route::get('/user/stories', [ProfileController::class, 'listStories']);
+        Route::get('/user/stories/{id}', [ProfileController::class, 'showStory']);
+        Route::post('/user/stories', [ProfileController::class, 'storeStory']);
+        Route::put('/user/stories/{id}', [ProfileController::class, 'updateStory']);
+        Route::delete('/user/stories/{id}', [ProfileController::class, 'destroyStory']);
+        Route::put('/user/stories/{id}/sync-status', [ProfileController::class, 'updateSyncStatus']);
+    });
 
     // Custodian profile routes
     Route::get('/custodian/profile', [CustodianController::class, 'getProfile']);
@@ -140,7 +142,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // ──────────────────────────────────────────────────────────────────────────
     // AMEN AI ROUTES - Chat with Amen AI companion
     // ──────────────────────────────────────────────────────────────────────────
-    Route::post('/amen-ai/chat', [AmenAIController::class, 'chat']);
+    Route::post('/amen-ai/chat', [AmenAIController::class, 'chat'])->middleware('throttle:30,1');
+    Route::post('/amen-ai/sos', [AmenAIController::class, 'sos']);
     Route::get('/amen-ai/history', [AmenAIController::class, 'history']);
     Route::get('/amen-ai/history/{conversationId}', [AmenAIController::class, 'sessionMessages']);
 
@@ -156,6 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ──────────────────────────────────────────────────────────────────────────
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/users', [AdminUserController::class, 'getUsers']);
+        Route::post('/users/{id}/toggle-returned-traveller', [AdminUserController::class, 'toggleReturnedTraveller']);
         Route::get('/stats', [AdminUserController::class, 'getStats']);
         Route::get('/custodians', [CustodianController::class, 'getForAdmin']);
         Route::get('/custodians/{id}', [CustodianController::class, 'show']);

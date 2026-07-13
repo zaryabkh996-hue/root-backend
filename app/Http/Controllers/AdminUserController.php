@@ -142,6 +142,7 @@ class AdminUserController extends Controller
                 'phase' => $phase,
                 'stage' => $stage,
                 'score' => $score,
+                'is_returned_traveller' => (bool)$user->is_returned_traveller,
             ];
         });
 
@@ -152,5 +153,26 @@ class AdminUserController extends Controller
             'totalPages' => ceil($total / $limit),
             'perPage' => $limit,
         ]);
+    }
+
+    public function toggleReturnedTraveller(Request $request, $id)
+    {
+        if (!$request->user() || $request->user()->role !== 'admin') {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        try {
+            $user = User::findOrFail($id);
+            $user->is_returned_traveller = !$user->is_returned_traveller;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Returned Traveller status updated successfully',
+                'is_returned_traveller' => (bool)$user->is_returned_traveller,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to update status: ' . $e->getMessage()], 500);
+        }
     }
 }

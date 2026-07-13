@@ -260,14 +260,55 @@ class KnowledgeBankService
         string $conversationId,
         float $pineconeScore
     ): KnowledgeCitation {
+        // 1. Validate Attribution: verify contribution exists and belongs to the custodian
+        $contribution = KnowledgeContribution::find($contributionId);
+        if (!$contribution || $contribution->user_id !== $custodianId) {
+            throw new \InvalidArgumentException("Invalid citation attribution: contribution does not belong to the custodian.");
+        }
+
+        $payoutAmount = config('ai.citation_payout_usd', 0.35);
+        $payoutStatus = 'pending';
+
+        // 2. Session Uniqueness / Idempotency check:
+        $existsInSession = KnowledgeCitation::where('conversation_id', $conversationId)
+            ->where('contribution_id', $contributionId)
+            ->exists();
+        
+        if ($existsInSession) {
+            $payoutAmount = 0.00;
+            $payoutStatus = 'failed';
+            Log::info('Knowledge Bank citation payout marked as duplicate (session idempotency)', [
+                'conversation_id' => $conversationId,
+                'contribution_id' => $contributionId,
+            ]);
+        }
+
+        // 3. Farming Protection / Cooldown:
+        if ($payoutStatus === 'pending') {
+            $existsRecently = KnowledgeCitation::where('client_id', $clientId)
+                ->where('contribution_id', $contributionId)
+                ->where('payout_amount', '>', 0)
+                ->where('created_at', '>=', now()->subHours(24))
+                ->exists();
+            
+            if ($existsRecently) {
+                $payoutAmount = 0.00;
+                $payoutStatus = 'failed';
+                Log::info('Knowledge Bank citation payout blocked to prevent reward farming (24h client-contribution cooldown)', [
+                    'client_id'       => $clientId,
+                    'contribution_id' => $contributionId,
+                ]);
+            }
+        }
+
         $citation = KnowledgeCitation::create([
             'contribution_id' => $contributionId,
             'custodian_id'    => $custodianId,
             'client_id'       => $clientId,
             'conversation_id' => $conversationId,
             'pinecone_score'  => $pineconeScore,
-            'payout_amount'   => config('ai.citation_payout_usd', 0.35),
-            'payout_status'   => 'pending',
+            'payout_amount'   => $payoutAmount,
+            'payout_status'   => $payoutStatus,
             'cited_at'        => now(),
         ]);
 
@@ -277,6 +318,7 @@ class KnowledgeBankService
             'custodian_id'    => $custodianId,
             'client_id'       => $clientId,
             'payout_amount'   => $citation->payout_amount,
+            'payout_status'   => $citation->payout_status,
             'pinecone_score'  => $pineconeScore,
         ]);
 

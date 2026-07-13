@@ -51,11 +51,19 @@ class SearchController extends Controller
         // 1. Search Modules & Library (Sanity or static fallback)
         if (empty($type) || $type === 'modules' || $type === 'library') {
             $sanityModules = $this->searchSanityModules($query);
+            $user = auth()->user();
+            $userTier = $user ? ($user->subscription_tier ?? 'free') : 'free';
+            $role = $user ? $user->role : 'customer';
             
             foreach ($sanityModules as $m) {
                 $stageId = $this->trackToStageId[$m['track'] ?? ''] ?? 1;
                 $modId = isset($m['moduleNumber']) ? "{$stageId}.{$m['moduleNumber']}" : ($m['_id'] ?? $m['id'] ?? '');
                 
+                // Tier filter check (applied before listing modules/library results)
+                if ($role !== 'admin' && !$this->hasTierAccess($userTier, $stageId)) {
+                    continue;
+                }
+
                 $formatted = [
                     'id' => $modId,
                     'title' => $m['title'] ?? '',
@@ -139,9 +147,42 @@ class SearchController extends Controller
     private function searchCommunity(string $query): array
     {
         $driver = \DB::connection()->getDriverName();
-        
+        $user = auth()->user();
+        $userId = $user ? $user->id : null;
+        $role = $user ? $user->role : 'customer';
+        $userTier = $user ? ($user->subscription_tier ?? 'free') : 'free';
+
+        // 1. Get accessible hub IDs based on user's tier
+        $accessibleHubIds = \DB::table('community_hubs')
+            ->where('is_active', true)
+            ->get()
+            ->filter(function($hub) use ($userTier, $role) {
+                if ($role === 'admin') {
+                    return true;
+                }
+                $tiers = [
+                    'free' => 0,
+                    'community' => 1,
+                    'preparation' => 2
+                ];
+                $userVal = $tiers[strtolower($userTier)] ?? 0;
+                $reqVal = $tiers[strtolower($hub->access_level)] ?? 0;
+                return $userVal >= $reqVal;
+            })
+            ->pluck('id')
+            ->toArray();
+
+        // 2. Get joined hub IDs based on membership
+        $joinedHubIds = [];
+        if ($userId) {
+            $joinedHubIds = \DB::table('hub_members')
+                ->where('user_id', $userId)
+                ->pluck('hub_id')
+                ->toArray();
+        }
+
         if ($driver === 'pgsql') {
-            $threads = \DB::table('community_threads')
+            $queryBuilder = \DB::table('community_threads')
                 ->join('users', 'community_threads.user_id', '=', 'users.id')
                 ->select(
                     'community_threads.id',
@@ -152,11 +193,9 @@ class SearchController extends Controller
                 )
                 ->selectRaw("ts_rank(to_tsvector('english', coalesce(community_threads.title, '') || ' ' || coalesce(community_threads.content, '')), plainto_tsquery('english', ?)) as relevance", [$query])
                 ->whereRaw("to_tsvector('english', coalesce(community_threads.title, '') || ' ' || coalesce(community_threads.content, '')) @@ plainto_tsquery('english', ?)", [$query])
-                ->where('community_threads.is_active', true)
-                ->orderByDesc('relevance')
-                ->get();
+                ->where('community_threads.is_active', true);
         } else {
-            $threads = \DB::table('community_threads')
+            $queryBuilder = \DB::table('community_threads')
                 ->join('users', 'community_threads.user_id', '=', 'users.id')
                 ->select(
                     'community_threads.id',
@@ -169,9 +208,20 @@ class SearchController extends Controller
                 ->where(function($q) use ($query) {
                     $q->where('community_threads.title', 'like', "%{$query}%")
                       ->orWhere('community_threads.content', 'like', "%{$query}%");
-                })
-                ->get();
+                });
         }
+
+        // Apply Moderation (Approval), Tier, and Membership checks
+        if ($role !== 'admin') {
+            $queryBuilder->whereIn('community_threads.hub_id', $accessibleHubIds)
+                ->whereIn('community_threads.hub_id', $joinedHubIds)
+                ->where(function($q) use ($userId) {
+                    $q->where('community_threads.status', 'approved')
+                      ->orWhere('community_threads.user_id', $userId);
+                });
+        }
+
+        $threads = $queryBuilder->get();
 
         return collect($threads)->map(function($t) {
             return [
@@ -190,25 +240,18 @@ class SearchController extends Controller
     private function searchCustodians(string $query): array
     {
         $driver = \DB::connection()->getDriverName();
-        
+        $role = auth()->user() ? auth()->user()->role : 'customer';
+
         if ($driver === 'pgsql') {
-            $custodians = \DB::table('users')
+            $queryBuilder = \DB::table('users')
                 ->select('id', 'name', 'specialty', 'description', 'short_bio', 'location', 'country')
                 ->where('role', 'custodian')
-                ->where(function($q) {
-                    $q->where('status', 'active')->orWhereNull('status');
-                })
                 ->selectRaw("ts_rank(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(specialty, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_bio, '') || ' ' || coalesce(about, '')), plainto_tsquery('english', ?)) as relevance", [$query])
-                ->whereRaw("to_tsvector('english', coalesce(name, '') || ' ' || coalesce(specialty, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_bio, '') || ' ' || coalesce(about, '')) @@ plainto_tsquery('english', ?)", [$query])
-                ->orderByDesc('relevance')
-                ->get();
+                ->whereRaw("to_tsvector('english', coalesce(name, '') || ' ' || coalesce(specialty, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_bio, '') || ' ' || coalesce(about, '')) @@ plainto_tsquery('english', ?)", [$query]);
         } else {
-            $custodians = \DB::table('users')
+            $queryBuilder = \DB::table('users')
                 ->select('id', 'name', 'specialty', 'description', 'short_bio', 'location', 'country')
                 ->where('role', 'custodian')
-                ->where(function($q) {
-                    $q->where('status', 'active')->orWhereNull('status');
-                })
                 ->where(function($q) use ($query) {
                     $q->where('name', 'like', "%{$query}%")
                       ->orWhere('specialty', 'like', "%{$query}%")
@@ -217,9 +260,20 @@ class SearchController extends Controller
                       ->orWhere('about', 'like', "%{$query}%")
                       ->orWhere('location', 'like', "%{$query}%")
                       ->orWhere('country', 'like', "%{$query}%");
-                })
-                ->get();
+                });
         }
+
+        // Apply custodian approval/verification and active status check
+        if ($role !== 'admin') {
+            $queryBuilder->where('status', 'active')
+                ->where('verified', true);
+        } else {
+            $queryBuilder->where(function($q) {
+                $q->where('status', 'active')->orWhereNull('status');
+            });
+        }
+
+        $custodians = $queryBuilder->get();
 
         return collect($custodians)->map(function($c) {
             return [
@@ -230,6 +284,30 @@ class SearchController extends Controller
                 'location' => ($c->location && $c->country) ? "{$c->location}, {$c->country}" : ($c->location ?: $c->country ?: 'Unknown'),
             ];
         })->toArray();
+    }
+
+    /**
+     * Check tier access for search modules
+     */
+    private function hasTierAccess(string $userTier, int $stageId): bool
+    {
+        $requiredTier = 'free';
+        if ($stageId === 2) {
+            $requiredTier = 'community';
+        } elseif ($stageId > 2) {
+            $requiredTier = 'preparation';
+        }
+
+        $tiers = [
+            'free' => 0,
+            'community' => 1,
+            'preparation' => 2
+        ];
+
+        $userVal = $tiers[strtolower($userTier)] ?? 0;
+        $reqVal = $tiers[strtolower($requiredTier)] ?? 0;
+
+        return $userVal >= $reqVal;
     }
 
     /**

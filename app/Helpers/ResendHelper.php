@@ -7,6 +7,10 @@ class ResendHelper
 
     public static function sendEmail($email, $subject, $htmlContent, $fromName = null)
     {
+        if (app()->environment('testing')) {
+            return true;
+        }
+
         try {
             $apiKey = config('services.resend.key');
             $fromEmail = config('services.resend.from_email', 'noreply@ourroots.africa');

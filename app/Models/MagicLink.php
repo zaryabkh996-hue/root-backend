@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\AsCollection;
+use Illuminate\Support\Str;
 
 class MagicLink extends Model
 {
@@ -49,6 +50,6 @@ class MagicLink extends Model
      */
     public static function generateToken(): string
     {
-        return hash('sha256', \Str::random(64) . time());
+        return hash('sha256', Str::random(64) . time());
     }
 }

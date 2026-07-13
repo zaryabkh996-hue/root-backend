@@ -32,6 +32,12 @@ class KnowledgeBankController extends Controller
     // Custodian Routes
     // ──────────────────────────────────────────────────────────────
 
+    private function validateCustodian(Request $request): bool
+    {
+        $user = $request->user();
+        return $user && $user->role === 'custodian' && $user->status === 'active' && (bool)$user->verified;
+    }
+
     /**
      * Submit a new Knowledge Bank contribution.
      *
@@ -39,11 +45,10 @@ class KnowledgeBankController extends Controller
      */
     public function submit(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (!$user || $user->role !== 'custodian') {
+        if (!$this->validateCustodian($request)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Forbidden. Custodian role required.'
+                'message' => 'Forbidden. Active and verified Custodian role required.'
             ], 403);
         }
 
@@ -54,10 +59,12 @@ class KnowledgeBankController extends Controller
             'ethnic_group'      => 'required|string|max:100',
             'region'            => 'required|string|max:100',
             'authority_role'    => 'required|string|max:255',
-            'media_file'        => 'nullable|file|max:512000', // 500MB max
+            'media_file'        => 'nullable|file|max:51200|mimes:mp4,mov,avi,webm,mp3,wav,ogg,m4a,jpg,jpeg,png,webp',
             'consent_signed'    => 'required|boolean|accepted',
             'consent_signature' => 'required|string|max:255',
         ]);
+
+        $user = $request->user();
 
         // Handle file upload if present
         $mediaPath = null;
@@ -65,6 +72,15 @@ class KnowledgeBankController extends Controller
 
         if ($request->hasFile('media_file')) {
             $file = $request->file('media_file');
+
+            // Run malware scan
+            if (!\App\Helpers\VirusScanner::scan($file)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Malware scan failed: the uploaded file contains a security threat.',
+                ], 400);
+            }
+
             $extension = strtolower($file->getClientOriginalExtension());
 
             // Determine media type
@@ -103,6 +119,13 @@ class KnowledgeBankController extends Controller
      */
     public function myContributions(Request $request): JsonResponse
     {
+        if (!$this->validateCustodian($request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. Active and verified Custodian role required.'
+            ], 403);
+        }
+
         $contributions = KnowledgeContribution::where('user_id', $request->user()->id)
             ->withCount('citations')
             ->orderByDesc('created_at')
@@ -128,6 +151,13 @@ class KnowledgeBankController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
+        if (!$this->validateCustodian($request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden. Active and verified Custodian role required.'
+            ], 403);
+        }
+
         $contribution = KnowledgeContribution::where('user_id', $request->user()->id)
             ->withCount('citations')
             ->findOrFail($id);

@@ -20,6 +20,8 @@ class Story extends Model
         'status',
         'revision_note',
         'community_hub_id',
+        'sync_state',
+        'idempotency_key',
     ];
 
     protected $casts = [

@@ -15,6 +15,19 @@ class User extends Authenticatable
     use HasFactory, Notifiable, HasApiTokens;
 
     /**
+     * The attributes that are guarded against mass assignment.
+     *
+     * @var list<string>
+     */
+    protected $guarded = [
+        'id',
+        'role',
+        'subscription_tier',
+        'certification',
+        'is_returned_traveller',
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -23,8 +36,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
-        'subscription_tier',
         'stripe_id',
         'stripe_subscription_id',
         'stripe_price_id',
@@ -50,7 +61,6 @@ class User extends Authenticatable
         'description',
         'tags',
         'price_from',
-        'certification',
         'coc_status',
         'review_avg',
         'sessions_count',
@@ -69,7 +79,6 @@ class User extends Authenticatable
         'journey_photos_default',
         'show_score_publicly',
         'notification_preferences',
-        'is_returned_traveller',
     ];
 
     /**

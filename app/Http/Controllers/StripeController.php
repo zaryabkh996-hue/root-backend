@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Stripe\StripeClient;
 use Stripe\Exception\SignatureVerificationException;
 use UnexpectedValueException;
@@ -21,57 +22,6 @@ class StripeController extends Controller
         }
     }
 
-    /**
-     * Create a Stripe Checkout Session for a subscription (MOCK FLOW - ACTIVE)
-     */
-    public function createCheckoutSession(Request $request)
-    {
-        try {
-            $user = $request->user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthenticated'
-                ], 401);
-            }
-
-            $request->validate([
-                'tier' => 'required|string|in:community,preparation',
-            ]);
-
-            $tier = $request->input('tier');
-
-            // Frontend URLs
-            $frontendUrl = env('APP_FRONTEND_URL', 'http://localhost:3000');
-            $successUrl = rtrim($frontendUrl, '/') . '/subscription/success?session_id=mock_session_' . uniqid();
-
-            // MOCK MODE: Bypass Stripe checkout session creation
-            // Directly upgrade user tier
-            $user->update([
-                'subscription_tier' => $tier,
-                'subscription_status' => 'active',
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'url' => $successUrl,
-            ], 200);
-
-        } catch (\Exception $e) {
-            Log::error('[StripeController] createCheckoutSession (Mock) error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create checkout session',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Create a Stripe Checkout Session for a subscription (REAL STRIPE FLOW - INACTIVE)
-     * To activate this: uncomment this function, and comment out the mock version above.
-     */
-    /*
     public function createCheckoutSession(Request $request)
     {
         if (!$this->stripe) {
@@ -158,7 +108,6 @@ class StripeController extends Controller
             ], 500);
         }
     }
-    */
 
     /**
      * Create a Stripe Billing Portal Session for subscription management
@@ -222,16 +171,15 @@ class StripeController extends Controller
 
         Log::info('[StripeWebhook] Webhook received');
 
+        if (!$webhookSecret) {
+            Log::error('[StripeWebhook] STRIPE_WEBHOOK_SECRET is not configured. Webhook rejected.');
+            return response()->json(['error' => 'Webhook secret is not configured'], 500);
+        }
+
         try {
-            if ($webhookSecret) {
-                $event = \Stripe\Webhook::constructEvent(
-                    $payload, $sigHeader, $webhookSecret
-                );
-            } else {
-                Log::warning('[StripeWebhook] STRIPE_WEBHOOK_SECRET is not configured. Signature verification skipped.');
-                $data = json_decode($payload, true);
-                $event = \Stripe\Event::constructFrom($data);
-            }
+            $event = \Stripe\Webhook::constructEvent(
+                $payload, $sigHeader, $webhookSecret
+            );
         } catch (UnexpectedValueException $e) {
             Log::error('[StripeWebhook] Invalid payload: ' . $e->getMessage());
             return response()->json(['error' => 'Invalid payload'], 400);
@@ -241,6 +189,13 @@ class StripeController extends Controller
         }
 
         Log::info('[StripeWebhook] Event type: ' . $event->type);
+
+        // Idempotency check using processed events ledger
+        $exists = DB::table('stripe_processed_events')->where('event_id', $event->id)->exists();
+        if ($exists) {
+            Log::info("[StripeWebhook] Event {$event->id} already processed. Skipping.");
+            return response()->json(['success' => true, 'message' => 'Event already processed (idempotent).']);
+        }
 
         switch ($event->type) {
             case 'checkout.session.completed':
@@ -258,6 +213,14 @@ class StripeController extends Controller
             default:
                 Log::info('[StripeWebhook] Unhandled event type: ' . $event->type);
         }
+
+        // Record the event in the ledger
+        DB::table('stripe_processed_events')->insert([
+            'event_id' => $event->id,
+            'event_type' => $event->type,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         return response()->json(['status' => 'success'], 200);
     }
@@ -304,14 +267,14 @@ class StripeController extends Controller
                     }
                 }
 
-                $user->update([
+                $user->forceFill([
                     'stripe_id' => $customerId,
                     'stripe_subscription_id' => $subscriptionId,
                     'stripe_price_id' => $subscription->items->data[0]->price->id ?? null,
                     'subscription_status' => $subscription->status,
                     'subscription_tier' => $tier,
                     'subscription_ends_at' => $subscription->current_period_end ? date('Y-m-d H:i:s', $subscription->current_period_end) : null,
-                ]);
+                ])->save();
                 
                 Log::info("[StripeWebhook] User {$user->id} subscription tier updated to {$tier}");
             } catch (\Exception $e) {
@@ -352,13 +315,13 @@ class StripeController extends Controller
                 $tier = ($status === 'past_due') ? $user->subscription_tier : 'free';
             }
 
-            $user->update([
+            $user->forceFill([
                 'stripe_subscription_id' => $subscriptionId,
                 'stripe_price_id' => $priceId,
                 'subscription_status' => $status,
                 'subscription_tier' => $tier,
                 'subscription_ends_at' => $subscription->current_period_end ? date('Y-m-d H:i:s', $subscription->current_period_end) : null,
-            ]);
+            ])->save();
 
             Log::info("[StripeWebhook] User {$user->id} subscription updated. Status: {$status}, Tier: {$tier}");
         } else {
@@ -381,13 +344,13 @@ class StripeController extends Controller
 
         $user = User::where('stripe_id', $customerId)->first();
         if ($user) {
-            $user->update([
+            $user->forceFill([
                 'stripe_subscription_id' => null,
                 'stripe_price_id' => null,
                 'subscription_status' => 'canceled',
                 'subscription_tier' => 'free',
                 'subscription_ends_at' => null,
-            ]);
+            ])->save();
 
             Log::info("[StripeWebhook] User {$user->id} subscription deleted. Tier set to free.");
         } else {

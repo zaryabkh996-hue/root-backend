@@ -9,10 +9,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
-use Laravel\Pail\ValueObjects\Origin\Console;
+use App\Services\Auth0TokenVerifier;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private Auth0TokenVerifier $tokenVerifier
+    ) {}
     /**
      * Register a new user
      */
@@ -199,22 +202,14 @@ class AuthController extends Controller
         ], 401);
     }
 
-    /**
-     * Register or update user from OAuth (Google, Apple, etc.)
-     */
     public function registerOAuth(Request $request)
     {
-        
         $validator = Validator::make($request->all(), [
-            'email' => 'required|string|email|max:255',
-            'name' => 'required|string|max:255',
-            'auth0_id' => 'required|string|max:255',
-            'picture' => 'nullable|string',
+            'id_token' => 'required|string',
             'provider' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
-            
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -223,43 +218,51 @@ class AuthController extends Controller
         }
 
         try {
-            // Check if user already exists by email
-            $user = User::where('email', $request->email)->first();
-            
-            
+            // Cryptographically verify Auth0 ID token
+            $payload = $this->tokenVerifier->verify($request->id_token);
+            $auth0Id = $payload['sub'] ?? null;
+            $email = $payload['email'] ?? null;
+            $name = $payload['name'] ?? 'User';
+            $picture = $payload['picture'] ?? null;
 
-            if ($user) {
-                // User exists - update their Auth0 ID if different
-                if (!$user->auth0_id || $user->auth0_id !== $request->auth0_id) {
-                    
-                    $user->update([
-                        'auth0_id' => $request->auth0_id,
-                        'name' => $request->name,
-                        'picture' => $request->picture,
-                    ]);
-                    
-                }
-            } else {
-                // Create new user from OAuth
-                
-                $user = User::create([
-                    'name' => $request->name,
-                    'email' => $request->email,
-                    'role' => 'customer',
-                    'auth0_id' => $request->auth0_id,
-                    'picture' => $request->picture,
-               'password' => Hash::make(\Str::random(32)), // Random password since using magic link
-                    'provider' => $request->provider ?? 'auth0',
-                    'email_verified_at' => now(), // Email is verified by Auth0
-                ]);
-                
+            if (!$auth0Id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid token payload: missing sub claim.',
+                ], 400);
             }
 
-            // Revoke old tokens, issue a fresh Sanctum token
+            // Find user ONLY by auth0_id to prevent account spoofing
+            $user = User::where('auth0_id', $auth0Id)->first();
+
+            if (!$user && $email) {
+                // Link existing user if found by verified email
+                $user = User::where('email', $email)->first();
+                if ($user) {
+                    $user->update([
+                        'auth0_id' => $auth0Id,
+                        'picture' => $picture ?: $user->picture,
+                    ]);
+                }
+            }
+
+            if (!$user) {
+                // Create a new user
+                $user = User::forceCreate([
+                    'name' => $name,
+                    'email' => $email,
+                    'role' => 'customer',
+                    'auth0_id' => $auth0Id,
+                    'picture' => $picture,
+                    'password' => Hash::make(Str::random(32)),
+                    'provider' => $request->provider ?? 'auth0',
+                    'email_verified_at' => now(),
+                ]);
+            }
+
+            // Revoke old tokens after identity validation/change to prevent token leakage
             $user->tokens()->delete();
             $token = $user->createToken('auth-token')->plainTextToken;
-
-            
 
             return response()->json([
                 'success' => true,
@@ -284,13 +287,10 @@ class AuthController extends Controller
             ], $user->wasRecentlyCreated ? 201 : 200);
 
         } catch (\Exception $e) {
-            
-
             return response()->json([
                 'success' => false,
-                'message' => 'OAuth registration failed',
-                'error' => $e->getMessage(),
-            ], 500);
+                'message' => 'OAuth authentication failed: ' . $e->getMessage(),
+            ], 401);
         }
     }
 

@@ -125,7 +125,6 @@ class ProfileController extends Controller
                 'profileVisibility' => 'sometimes|in:public,community,private',
                 'journeyPhotosDefault' => 'sometimes|in:public,community,private',
                 'showScorePublicly' => 'sometimes|boolean',
-                'certification' => 'sometimes|string|nullable',
             ]);
 
             if ($validator->fails()) {
@@ -175,9 +174,6 @@ class ProfileController extends Controller
             if ($request->has('showScorePublicly')) {
                 $dataToUpdate['show_score_publicly'] = $request->input('showScorePublicly');
             }
-            if ($request->has('certification')) {
-                $dataToUpdate['certification'] = $request->input('certification');
-            }
 
             // Update user
             $user->update($dataToUpdate);
@@ -213,35 +209,7 @@ class ProfileController extends Controller
         }
     }
 
-    /**
-     * Grant Returned Traveller role to the authenticated user
-     */
-    public function grantReturnedTraveller(Request $request)
-    {
-        try {
-            $user = $request->user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthenticated'
-                ], 401);
-            }
 
-            $user->is_returned_traveller = true;
-            $user->save();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Returned Traveller role granted successfully',
-                'data' => $user
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to grant role: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * Update user notifications preferences
@@ -371,6 +339,15 @@ class ProfileController extends Controller
 
             // Store new picture
             $file = $request->file('picture');
+
+            // Run malware scan
+            if (!\App\Helpers\VirusScanner::scan($file)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Malware scan failed: the uploaded file contains a security threat.',
+                ], 400);
+            }
+
             \Log::info('[ProfileController] uploadPicture - Storing new file', [
                 'filename' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
@@ -530,6 +507,15 @@ class ProfileController extends Controller
 
             // Store photo
             $file = $request->file('photo');
+
+            // Run malware scan
+            if (!\App\Helpers\VirusScanner::scan($file)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Malware scan failed: the uploaded file contains a security threat.',
+                ], 400);
+            }
+
             $path = $file->store('journey-photos', 'public');
             $relativePath = 'journey-photos/' . basename($path);
 
@@ -658,11 +644,28 @@ class ProfileController extends Controller
             $validator = Validator::make($request->all(), [
                 'title' => 'required|string|max:255',
                 'body' => 'required|string',
-                'sanity_id' => 'nullable|string',
+                'sanity_id' => 'required|string',
+                'idempotency_key' => 'nullable|string|max:255',
+                'sync_state' => 'nullable|string|in:pending,synced,failed',
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            $idempotencyKey = $request->input('idempotency_key');
+            if ($idempotencyKey) {
+                // Check if a story with the same idempotency key already exists for this user
+                $existing = Story::where('idempotency_key', $idempotencyKey)
+                    ->where('author_id', $user->id)
+                    ->first();
+                if ($existing) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Story already exists (idempotent response)',
+                        'data' => $existing
+                    ], 200);
+                }
             }
 
             // Create story locally
@@ -673,17 +676,13 @@ class ProfileController extends Controller
                 'author' => $user->name,
                 'author_id' => $user->id,
                 'status' => 'pending',
+                'sync_state' => $request->input('sync_state', 'pending'),
+                'idempotency_key' => $idempotencyKey,
             ]);
-
-            // Automatically grant Returned Traveller role
-            if (!$user->is_returned_traveller) {
-                $user->is_returned_traveller = true;
-                $user->save();
-            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Story draft created and Returned Traveller status granted.',
+                'message' => 'Story draft created successfully.',
                 'data' => $story
             ], 201);
         } catch (\Exception $e) {
@@ -772,6 +771,14 @@ class ProfileController extends Controller
 
             $story = Story::findOrFail($id);
 
+            if ($story->status === 'approved') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Story is already approved.',
+                    'data' => $story
+                ], 400);
+            }
+
             $validator = Validator::make($request->all(), [
                 'hub_id' => 'required|integer|exists:community_hubs,id',
             ]);
@@ -844,6 +851,75 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Story revision request submitted successfully.',
+                'data' => $story
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Delete a story (used for transactional rollback)
+     */
+    public function destroyStory(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $story = Story::findOrFail($id);
+
+            // Author ownership check
+            if ($story->author_id !== $user->id && $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $story->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Story deleted successfully (rolled back).'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update sync status of a story
+     */
+    public function updateSyncStatus(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $story = Story::findOrFail($id);
+
+            // Author ownership check
+            if ($story->author_id !== $user->id && $user->role !== 'admin') {
+                return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'sync_state' => 'required|string|in:pending,synced,failed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            $story->update([
+                'sync_state' => $request->input('sync_state'),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sync status updated successfully.',
                 'data' => $story
             ]);
         } catch (\Exception $e) {

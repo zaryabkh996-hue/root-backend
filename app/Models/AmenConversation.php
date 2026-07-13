@@ -27,6 +27,7 @@ class AmenConversation extends Model
     public function casts(): array
     {
         return [
+            'content'       => 'encrypted',
             'fragment_used' => 'boolean',
             'tokens_used'   => 'integer',
         ];

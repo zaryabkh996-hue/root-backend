@@ -12,20 +12,24 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         // Create Admin User
-        $admin = User::updateOrCreate(
-            ['email' => 'admin@portal.com'],
-            [
+        $admin = User::where('email', 'admin@portal.com')->first();
+        if (!$admin) {
+            $seedPassword = env('ADMIN_SEED_PASSWORD');
+            if (!$seedPassword || strlen($seedPassword) < 12 || $seedPassword === 'admin@portal.com') {
+                // Generate a secure random password if not configured securely or if it is the insecure default
+                $seedPassword = \Illuminate\Support\Str::random(16);
+                $this->command->info("Generated secure Admin password: {$seedPassword}");
+            }
+            User::forceCreate([
                 'name' => 'Admin',
-                'password' => Hash::make(env('ADMIN_SEED_PASSWORD', 'admin@portal.com')),
+                'email' => 'admin@portal.com',
+                'password' => Hash::make($seedPassword),
                 'role' => 'admin',
-            ]
-        );
+            ]);
+        }
 
         $this->call([
             CustodianSeeder::class,

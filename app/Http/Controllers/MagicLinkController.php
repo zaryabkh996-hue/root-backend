@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class MagicLinkController extends Controller
 {
@@ -30,10 +31,11 @@ class MagicLinkController extends Controller
         try {
             // Check if user already exists
             if (User::where('email', $validated['email'])->exists()) {
+                // Prevent user enumeration by returning the same success message
                 return response()->json([
-                    'success' => false,
-                    'message' => 'An account with this email already exists. Please sign in instead.'
-                ], 409);
+                    'success' => true,
+                    'message' => 'Magic link sent! Check your email (it expires in 15 minutes).'
+                ]);
             }
 
             // Resolve quiz token if provided
@@ -113,15 +115,11 @@ class MagicLinkController extends Controller
             $user = User::where('email', $validated['email'])->first();
             
             if (!$user) {
+                // Prevent user enumeration by returning the same success message
                 return response()->json([
-                    'success' => false,
-                    'message' => 'No account found with this email.',
-                    'code' => 'USER_NOT_FOUND',
-                    'guidance' => [
-                        'customer' => 'Please complete our quiz and register to create an account.',
-                        'custodian' => 'If you are a custodian/admin, please contact the main administrator for account access.'
-                    ]
-                ], 404);
+                    'success' => true,
+                    'message' => 'Magic link sent! Check your email (it expires in 15 minutes).'
+                ]);
             }
 
             // Revoke any existing unused magic links for this email
@@ -184,10 +182,21 @@ class MagicLinkController extends Controller
             'token' => 'required|string'
         ]);
 
+        \DB::beginTransaction();
         try {
+            // lockForUpdate to prevent race condition/replay attacks
+            $magicLink = MagicLink::where('token', $validated['token'])->lockForUpdate()->first();
+            
+            if (!$magicLink) {
+                \DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or expired magic link token.'
+                ], 400);
+            }
 
-            $magicLink = MagicLink::where('token', $validated['token'])->first();
             if ($magicLink->used) {
+                \DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => 'This magic link has already been used.'
@@ -196,28 +205,27 @@ class MagicLinkController extends Controller
 
             if (!$magicLink->isValid()) {
                 $magicLink->delete();
+                \DB::commit();
                 return response()->json([
                     'success' => false,
                     'message' => 'This magic link has expired. Please register again.'
                 ], 410);
             }
 
-
-            $user = User::where('email', $magicLink->email)->first();
+            $user = User::where('email', $magicLink->email)->lockForUpdate()->first();
             $isNewUser = false;
 
             if (!$user) {
                 $isNewUser = true;
 
-                $user = User::create([
+                $user = User::forceCreate([
                     'name' => $magicLink->name,
                     'email' => $magicLink->email,
                     'whatsapp' => $magicLink->whatsapp,
                     'role' => 'customer', // Default role
-                    'password' => Hash::make(\Str::random(32)), // Random password since using magic link
+                    'password' => Hash::make(Str::random(32)), // Random password since using magic link
                     'email_verified_at' => now(),
                 ]);
-
 
                 if ($magicLink->quiz_data) {
                     $quizData = $magicLink->quiz_data;
@@ -237,16 +245,17 @@ class MagicLinkController extends Controller
                     $user->update($updateData);
 
                     // Update UserProgress
-                    $progress =UserProgress::firstOrNew(['user_id' => $user->id]);
+                    $progress = UserProgress::firstOrNew(['user_id' => $user->id]);
                     $progress->afro_score = $quizData['totalScore'] ?? 0;
                     $progress->user_persona = $quizData['persona'] ?? 'Heritage Seeker';
                     $progress->save();
-
                 }
             }
 
             $magicLink->markAsUsed();
             $token = $user->createToken('auth-token')->plainTextToken;
+
+            \DB::commit();
 
             return response()->json([
                 'success' => true,
@@ -266,6 +275,7 @@ class MagicLinkController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \DB::rollBack();
             Log::error('Failed to verify magic link: ' . $e->getMessage(), [
                 'token' => $validated['token'] ?? null,
                 'exception' => $e
