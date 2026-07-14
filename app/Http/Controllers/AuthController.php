@@ -204,12 +204,20 @@ class AuthController extends Controller
 
     public function registerOAuth(Request $request)
     {
+        \Illuminate\Support\Facades\Log::info('[registerOAuth] Incoming OAuth registration/login request', [
+            'provider' => $request->input('provider'),
+            'has_id_token' => !empty($request->input('id_token')),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'id_token' => 'required|string',
             'provider' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
+            \Illuminate\Support\Facades\Log::warning('[registerOAuth] Validation failed', [
+                'errors' => $validator->errors()->toArray()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -219,13 +227,21 @@ class AuthController extends Controller
 
         try {
             // Cryptographically verify Auth0 ID token
+            \Illuminate\Support\Facades\Log::info('[registerOAuth] Attempting to cryptographically verify ID token...');
             $payload = $this->tokenVerifier->verify($request->id_token);
             $auth0Id = $payload['sub'] ?? null;
             $email = $payload['email'] ?? null;
             $name = $payload['name'] ?? 'User';
             $picture = $payload['picture'] ?? null;
 
+            \Illuminate\Support\Facades\Log::info('[registerOAuth] Token verification successful', [
+                'auth0_id' => $auth0Id,
+                'email' => $email,
+                'name' => $name,
+            ]);
+
             if (!$auth0Id) {
+                \Illuminate\Support\Facades\Log::error('[registerOAuth] Missing sub claim in verified token');
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid token payload: missing sub claim.',
@@ -235,10 +251,22 @@ class AuthController extends Controller
             // Find user ONLY by auth0_id to prevent account spoofing
             $user = User::where('auth0_id', $auth0Id)->first();
 
+            if ($user) {
+                \Illuminate\Support\Facades\Log::info('[registerOAuth] Found existing user by auth0_id', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                ]);
+            }
+
             if (!$user && $email) {
                 // Link existing user if found by verified email
                 $user = User::where('email', $email)->first();
                 if ($user) {
+                    \Illuminate\Support\Facades\Log::info('[registerOAuth] Found user by email. Linking auth0_id to this user profile', [
+                        'user_id' => $user->id,
+                        'email' => $email,
+                        'auth0_id' => $auth0Id,
+                    ]);
                     $user->update([
                         'auth0_id' => $auth0Id,
                         'picture' => $picture ?: $user->picture,
@@ -248,6 +276,10 @@ class AuthController extends Controller
 
             if (!$user) {
                 // Create a new user
+                \Illuminate\Support\Facades\Log::info('[registerOAuth] User not found. Creating a new customer user profile', [
+                    'email' => $email,
+                    'name' => $name,
+                ]);
                 $user = User::forceCreate([
                     'name' => $name,
                     'email' => $email,
@@ -258,10 +290,14 @@ class AuthController extends Controller
                     'provider' => $request->provider ?? 'auth0',
                     'email_verified_at' => now(),
                 ]);
+                \Illuminate\Support\Facades\Log::info('[registerOAuth] User created successfully', [
+                    'user_id' => $user->id,
+                ]);
             }
 
             // Revoke old tokens after identity validation/change to prevent token leakage
             $token = $user->createToken('auth-token')->plainTextToken;
+            \Illuminate\Support\Facades\Log::info('[registerOAuth] Issued Sanctum token successfully');
 
             return response()->json([
                 'success' => true,
@@ -286,6 +322,10 @@ class AuthController extends Controller
             ], $user->wasRecentlyCreated ? 201 : 200);
 
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('[registerOAuth] OAuth authentication/verification exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'OAuth authentication failed: ' . $e->getMessage(),
