@@ -261,7 +261,6 @@ class AuthController extends Controller
             }
 
             // Revoke old tokens after identity validation/change to prevent token leakage
-            $user->tokens()->delete();
             $token = $user->createToken('auth-token')->plainTextToken;
 
             return response()->json([
