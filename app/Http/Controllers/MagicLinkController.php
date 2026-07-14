@@ -250,6 +250,32 @@ class MagicLinkController extends Controller
                     $progress->user_persona = $quizData['persona'] ?? 'Heritage Seeker';
                     $progress->save();
                 }
+            } else {
+                // For existing users, if they completed the quiz/onboarding as guest,
+                // save the quiz data and update their onboarding status.
+                if ($magicLink->quiz_data) {
+                    $quizData = $magicLink->quiz_data;
+                    $learningPref = $quizData['onboardingAnswers']['whatBroughtYouHere'] ?? null;
+                    $travelDate = $quizData['onboardingAnswers']['travelTimeline'] ?? null;
+
+                    $updateData = [
+                        'quiz_data' => $quizData
+                    ];
+
+                    if (!empty($learningPref) && !empty($travelDate)) {
+                        $updateData['learning_preference'] = $learningPref;
+                        $updateData['travel_date'] = $travelDate;
+                        $updateData['onboarded'] = true;
+                    }
+
+                    $user->update($updateData);
+
+                    // Update UserProgress
+                    $progress = UserProgress::firstOrNew(['user_id' => $user->id]);
+                    $progress->afro_score = $quizData['totalScore'] ?? 0;
+                    $progress->user_persona = $quizData['persona'] ?? 'Heritage Seeker';
+                    $progress->save();
+                }
             }
 
             $magicLink->markAsUsed();
