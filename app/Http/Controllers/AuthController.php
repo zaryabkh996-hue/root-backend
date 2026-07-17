@@ -225,20 +225,43 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $idToken = $request->input('id_token');
+        if (empty($idToken) || trim($idToken) === '' || in_array(strtolower(trim($idToken)), ['null', 'undefined'])) {
+            \Illuminate\Support\Facades\Log::warning('[registerOAuth] Empty or invalid string provided as ID token');
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or missing ID token.',
+            ], 400);
+        }
+
         try {
             // Cryptographically verify Auth0 ID token
             \Illuminate\Support\Facades\Log::info('[registerOAuth] Attempting to cryptographically verify ID token...');
-            $payload = $this->tokenVerifier->verify($request->id_token);
+            $payload = $this->tokenVerifier->verify($idToken);
             $auth0Id = $payload['sub'] ?? null;
             $email = $payload['email'] ?? null;
             $name = $payload['name'] ?? 'User';
             $picture = $payload['picture'] ?? null;
+            $emailVerified = $payload['email_verified'] ?? null;
 
             \Illuminate\Support\Facades\Log::info('[registerOAuth] Token verification successful', [
                 'auth0_id' => $auth0Id,
                 'email' => $email,
                 'name' => $name,
+                'email_verified' => $emailVerified,
             ]);
+
+            // Enforce email verification status from IdP to prevent hijacking via unverified social identity claims
+            if ($emailVerified !== null && $emailVerified === false) {
+                \Illuminate\Support\Facades\Log::warning('[registerOAuth] Rejecting login/registration for unverified OAuth email', [
+                    'email' => $email,
+                    'auth0_id' => $auth0Id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'OAuth email address must be verified with your provider.',
+                ], 400);
+            }
 
             if (!$auth0Id) {
                 \Illuminate\Support\Facades\Log::error('[registerOAuth] Missing sub claim in verified token');
