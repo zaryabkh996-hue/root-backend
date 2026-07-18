@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use App\Http\Resources\PublicCustodianResource;
 
 class CustodianController extends Controller
 {
@@ -51,7 +52,7 @@ class CustodianController extends Controller
             $custodians = $query->paginate($limit, ['*'], 'page', $page);
 
             return response()->json([
-                'custodians' => $custodians->items(),
+                'custodians' => PublicCustodianResource::collection($custodians->items()),
                 'total' => $total,
                 'currentPage' => $page,
                 'totalPages' => ceil($total / $limit),
@@ -75,7 +76,7 @@ class CustodianController extends Controller
                 })
                 ->withCount('bookings as sessions')
                 ->findOrFail($id);
-            return response()->json(['custodian' => $custodian]);
+            return response()->json(['custodian' => new PublicCustodianResource($custodian)]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json(['error' => 'Custodian not found'], 404);
         } catch (\Exception $e) {

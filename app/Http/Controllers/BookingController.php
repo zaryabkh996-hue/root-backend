@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Mail\BookingEmail;
 use App\Helpers\ResendHelper;
 use App\Http\Resources\CustodianBookingResource;
+use App\Http\Resources\UserBookingResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -109,7 +110,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $booking,
+                'data' => new UserBookingResource($booking),
                 'message' => 'Booking created successfully',
             ], 201);
         } catch (\Exception $e) {
@@ -134,7 +135,7 @@ class BookingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $bookings,
+                'data' => UserBookingResource::collection($bookings),
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to fetch bookings'], 500);

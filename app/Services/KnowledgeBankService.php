@@ -188,8 +188,31 @@ class KnowledgeBankService
                 return null;
             }
 
-            $topMatch = $matches[0];
-            $score = $topMatch['score'] ?? 0;
+            // Find the first match whose authoring custodian is active and verified
+            $topMatch = null;
+            $score = 0.0;
+            $metadata = [];
+            
+            foreach ($matches as $match) {
+                $matchMetadata = $match['metadata'] ?? [];
+                $custodianId = $matchMetadata['custodian_user_id'] ?? null;
+                
+                if ($custodianId) {
+                    $custodian = User::find($custodianId);
+                    if ($custodian && $custodian->role === 'custodian' && $custodian->status === 'active' && (bool)$custodian->verified) {
+                        $topMatch = $match;
+                        $score = $match['score'] ?? 0.0;
+                        $metadata = $matchMetadata;
+                        break;
+                    }
+                }
+            }
+
+            if (!$topMatch) {
+                Log::info('Knowledge Bank query: no matches from active/verified custodians.');
+                return null;
+            }
+
             $confidenceThreshold = config('ai.kb_confidence_threshold', 0.78);
             $nearMissThreshold = config('ai.kb_near_miss_threshold', 0.60);
 
@@ -199,7 +222,7 @@ class KnowledgeBankService
                     'score'           => $score,
                     'threshold'       => $confidenceThreshold,
                     'message_preview' => Str::limit($message, 100),
-                    'closest_match'   => $topMatch['metadata']['title'] ?? 'unknown',
+                    'closest_match'   => $metadata['title'] ?? 'unknown',
                 ]);
             }
 
@@ -211,9 +234,6 @@ class KnowledgeBankService
                 ]);
                 return null;
             }
-
-            // Return the fragment data
-            $metadata = $topMatch['metadata'] ?? [];
 
             Log::info('Knowledge Bank fragment matched', [
                 'score'           => $score,

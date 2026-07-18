@@ -195,5 +195,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/stripe/checkout', [StripeController::class, 'createCheckoutSession']);
     Route::post('/stripe/portal', [StripeController::class, 'createPortalSession']);
     
+    // Cloudinary secure signing routes
+    Route::post('/cloudinary/signature', [\App\Http\Controllers\CloudinaryController::class, 'signature']);
+    Route::post('/cloudinary/delivery-url', [\App\Http\Controllers\CloudinaryController::class, 'deliveryUrl']);
 });
 
